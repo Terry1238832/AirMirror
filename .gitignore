@@ -1,0 +1,11 @@
+build/
+dist/
+DerivedData/
+Vendor/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+*.moved-aside
+*.hmap
+*.dSYM.zip
+*.dSYM

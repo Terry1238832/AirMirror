@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071411">
+  <meta name="description" content="镜投，让 iPhone 和 iPad 用系统自带的屏幕镜像，投到 Mac 上。打开就能在局域网里被搜到。">
+  <meta property="og:title" content="镜投 · 手机画面，投到 Mac。">
+  <meta property="og:description" content="用 iPhone / iPad 自带的屏幕镜像，把画面投到这台 Mac。">
+  <meta property="og:type" content="website">
+  <title>镜投 — 手机画面，投到 Mac。</title>
+  <link rel="icon" type="image/png" href="app-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav shell">
+      <a class="brand" href="#"><img src="app-icon.png" alt="" width="34" height="34"><span>镜投</span></a>
+      <div class="nav-links"><a href="#how">怎么用</a><a href="#install">安装</a><a href="#faq">常见问题</a></div>
+      <a class="nav-download" href="#download">下载</a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero shell">
+      <p class="release-pill"><span>1.0.0</span> 同一个窗口里等投屏、看画面</p>
+      <h1>手机画面，<br><span>投到 Mac。</span></h1>
+      <p class="hero-description">iPhone 和 iPad 用系统自带的屏幕镜像。<br>打开镜投，同一 Wi-Fi 里就能搜到。</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.0.0/镜投-1.0.0.dmg">下载 Mac 版</a>
+        <a class="button button-github" href="https://github.com/Terry1238832/AirMirror">GitHub</a>
+      </div>
+      <p class="compatibility">macOS 14+ <span>·</span> Apple 芯片 <span>·</span> 约 25 MB</p>
+      <div class="phone-card" aria-hidden="true">
+        <div class="phone-top"><i></i><i></i><i></i><strong>镜投</strong></div>
+        <p>等待投屏</p>
+        <ol>
+          <li>从屏幕右上角下拉，打开控制中心</li>
+          <li>点「屏幕镜像」</li>
+          <li>选择「镜投」</li>
+        </ol>
+      </div>
+    </section>
+    <section class="section shell" id="how">
+      <p class="eyebrow">HOW IT WORKS</p>
+      <h2>三步，画面就在这个窗口里。</h2>
+      <div class="steps">
+        <article><span>01</span><h3>打开镜投</h3><p>它会在局域网里广播。手机和 Mac 要在同一个 Wi-Fi。</p></article>
+        <article><span>02</span><h3>点屏幕镜像</h3><p>在 iPhone 或 iPad 的控制中心点「屏幕镜像」，选择镜投。</p></article>
+        <article><span>03</span><h3>看这一个窗口</h3><p>等待页和投屏画面在同一个窗口。全屏时保持手机原来的比例。</p></article>
+      </div>
+    </section>
+    <section class="section install" id="install">
+      <div class="shell">
+        <p class="eyebrow">INSTALL</p>
+        <h2>拖进去，就能用。</h2>
+        <ol class="steps">
+          <li><span>01</span><h3>打开磁盘映像</h3><p>把「镜投」拖进「应用程序」。</p></li>
+          <li><span>02</span><h3>第一次打开</h3><p>当前版本还没有 Apple 公证。如果系统拦住，按住 Control 点图标，选「打开」。</p></li>
+          <li><span>03</span><h3>开始投屏</h3><p>窗口里写着等待投屏之后，用手机的屏幕镜像连过来。</p></li>
+        </ol>
+      </div>
+    </section>
+    <section class="section shell faq" id="faq">
+      <p class="eyebrow">FAQ</p>
+      <h2>下载之前。</h2>
+      <details open><summary>支持哪些设备？</summary><p>接收端是 Apple 芯片的 Mac，系统 macOS 14 或更新。手机和平板是 iPhone、iPad，用系统自带的屏幕镜像，不需要额外 App。</p></details>
+      <details><summary>搜不到镜投？</summary><p>手机和 Mac 要在同一个局域网。公司或酒店的隔离 Wi-Fi 经常会挡住设备互相发现，换一个可以互通的网络再试。</p></details>
+      <details><summary>画面会不会被拉变形？</summary><p>窗口会锁住设备比例。全屏时四周留黑边，画面本身按原来的宽高显示。</p></details>
+      <details><summary>为什么第一次打开要手动允许？</summary><p>安装包没有经过 Apple 公证。这只影响第一次打开，按住 Control 点「打开」即可。</p></details>
+    </section>
+    <section class="download shell" id="download">
+      <img src="app-icon.png" alt="" width="80" height="80">
+      <h2>把手机屏幕，放到 Mac 上。</h2>
+      <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.0.0/镜投-1.0.0.dmg">下载镜投 1.0.0</a>
+      <p class="meta">macOS 14+ · Apple 芯片</p>
+      <p class="caveat">未经 Apple 公证。首次打开请按住 Control 再点「打开」。<a href="SHA256SUMS.txt">SHA-256</a></p>
+    </section>
+  </main>
+  <footer class="shell">
+    <div><strong>镜投</strong><p>一个小工具，接收 iPhone 和 iPad 的屏幕镜像。</p></div>
+    <p class="note">© 2026 镜投 · 画面接收基于 <a href="https://github.com/FDH2/UxPlay">UxPlay</a></p>
+  </footer>
+</body>
+</html>
