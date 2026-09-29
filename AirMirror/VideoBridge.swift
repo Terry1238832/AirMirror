@@ -46,11 +46,17 @@ final class VideoBridge: ObservableObject {
     private var stopping = false
     private var generation = 0
     private var formatDesc: CMFormatDescription?
+    /// iOS resends identical SPS/PPS whenever the stream resumes; only different bytes are a real format change.
+    private var formatParameterSets = Data()
     private var sps: Data?
     private var pps: Data?
     private var vps: Data?
     private var codec: UInt32 = 0
     private var pending = [Data]()
+    /// Main-thread only. After a decoder failure, P-frames can't decode until the next IDR.
+    private var waitingForKeyframe = false
+    /// Avoid rewriting `videoGravity` with the same value; that redraws the layer.
+    private var lastLetterbox: Bool?
 
     init() {
         socketPath = "/tmp/airmirror-\(ProcessInfo.processInfo.processIdentifier).sock"
@@ -130,7 +136,12 @@ final class VideoBridge: ObservableObject {
 
     func setFillMode(letterbox: Bool) {
         DispatchQueue.main.async { [weak self] in
-            self?.displayLayer.videoGravity = letterbox ? .resizeAspect : .resize
+            guard let self else { return }
+            let gravity: AVLayerVideoGravity = letterbox ? .resizeAspect : .resize
+            guard self.lastLetterbox != letterbox || self.displayLayer.videoGravity != gravity else { return }
+            self.lastLetterbox = letterbox
+            guard self.displayLayer.videoGravity != gravity else { return }
+            self.displayLayer.videoGravity = gravity
         }
     }
 
@@ -208,7 +219,6 @@ final class VideoBridge: ObservableObject {
         let nalus = Self.splitNALUs(data)
         guard !nalus.isEmpty else { return }
 
-        let previousFormat = formatDesc
         if codec == 1 {
             for nalu in nalus {
                 switch Self.hevcType(nalu) {
@@ -219,7 +229,11 @@ final class VideoBridge: ObservableObject {
                 }
             }
             if let vps, let sps, let pps {
-                formatDesc = Self.makeHEVCFormat(vps: vps, sps: sps, pps: pps) ?? formatDesc
+                let key = vps + sps + pps
+                if key != formatParameterSets, let next = Self.makeHEVCFormat(vps: vps, sps: sps, pps: pps) {
+                    formatDesc = next
+                    formatParameterSets = key
+                }
             }
         } else {
             for nalu in nalus {
@@ -230,12 +244,12 @@ final class VideoBridge: ObservableObject {
                 }
             }
             if let sps, let pps {
-                formatDesc = Self.makeH264Format(sps: sps, pps: pps) ?? formatDesc
+                let key = sps + pps
+                if key != formatParameterSets, let next = Self.makeH264Format(sps: sps, pps: pps) {
+                    formatDesc = next
+                    formatParameterSets = key
+                }
             }
-        }
-        if let formatDesc, formatDesc !== previousFormat, previousFormat != nil {
-            pending.removeAll()
-            flushLayer()
         }
 
         guard formatDesc != nil else {
@@ -303,37 +317,56 @@ final class VideoBridge: ObservableObject {
         )
         guard status == noErr, let sample else { return }
 
+        let keyframe = isKeyframe(nalus)
         if let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: true) as? [NSMutableDictionary],
            let first = attachments.first {
             first[kCMSampleAttachmentKey_DisplayImmediately] = true
-            let nalus = Self.splitNALUs(annexB)
-            let keyframe = nalus.contains { nalu in
-                let avc = Self.avcType(nalu)
-                let hevc = Self.hevcType(nalu)
-                return avc == 5 || avc == 7 || hevc == 19 || hevc == 20 || hevc == 21 || hevc == 32 || hevc == 33
-            }
             first[kCMSampleAttachmentKey_NotSync] = !keyframe
         }
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.enqueueOnLayer(sample)
+            self.enqueueOnLayer(sample, keyframe: keyframe)
             if !self.hasVideo {
                 self.hasVideo = true
             }
         }
     }
 
-    private func enqueueOnLayer(_ sample: CMSampleBuffer) {
+    /// H.264 and HEVC share the first byte, so the type has to follow the active codec.
+    /// Treating an H.264 P-frame as an HEVC parameter set marked it sync and the picture flashed.
+    private func isKeyframe(_ nalus: [Data]) -> Bool {
+        if codec == 1 {
+            return nalus.contains { nalu in
+                let type = Self.hevcType(nalu)
+                return (16...21).contains(type)
+            }
+        }
+        return nalus.contains { Self.avcType($0) == 5 }
+    }
+
+    private func enqueueOnLayer(_ sample: CMSampleBuffer, keyframe: Bool) {
         if #available(macOS 14.0, *) {
             let renderer = displayLayer.sampleBufferRenderer
             if renderer.status == .failed {
-                renderer.flush(removingDisplayedImage: true)
+                logger.error("video decoder failed: \(String(describing: renderer.error), privacy: .public)")
+                renderer.flush(removingDisplayedImage: false)
+                waitingForKeyframe = true
+            }
+            if waitingForKeyframe {
+                guard keyframe else { return }
+                waitingForKeyframe = false
             }
             renderer.enqueue(sample)
         } else {
             if displayLayer.status == .failed {
-                displayLayer.flushAndRemoveImage()
+                logger.error("video decoder failed: \(String(describing: self.displayLayer.error), privacy: .public)")
+                displayLayer.flush()
+                waitingForKeyframe = true
+            }
+            if waitingForKeyframe {
+                guard keyframe else { return }
+                waitingForKeyframe = false
             }
             displayLayer.enqueue(sample)
         }
@@ -342,6 +375,7 @@ final class VideoBridge: ObservableObject {
     private func flushLayer() {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            self.waitingForKeyframe = false
             if #available(macOS 14.0, *) {
                 self.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
             } else {
@@ -352,6 +386,7 @@ final class VideoBridge: ObservableObject {
 
     private func resetDecoder() {
         formatDesc = nil
+        formatParameterSets = Data()
         sps = nil
         pps = nil
         vps = nil
@@ -508,7 +543,9 @@ struct VideoCanvas: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        nsView.layer = bridge.displayLayer
+        if nsView.layer !== bridge.displayLayer {
+            nsView.layer = bridge.displayLayer
+        }
     }
 }
 
@@ -532,10 +569,10 @@ final class VideoHostView: NSView {
         guard let window else { return }
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: window, queue: .main) { [weak self] _ in
-            (self?.layer as? AVSampleBufferDisplayLayer)?.videoGravity = .resizeAspect
+            self?.setVideoGravity(.resizeAspect)
         })
         observers.append(center.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window, queue: .main) { [weak self] _ in
-            (self?.layer as? AVSampleBufferDisplayLayer)?.videoGravity = .resize
+            self?.setVideoGravity(.resize)
         })
     }
 
@@ -545,7 +582,15 @@ final class VideoHostView: NSView {
 
     override func layout() {
         super.layout()
-        layer?.frame = bounds
+        guard let layer else { return }
+        // AppKit already sizes a view's layer. Rewriting the same frame still redraws the picture.
+        guard layer.bounds.size != bounds.size else { return }
+        layer.frame = bounds
+    }
+
+    private func setVideoGravity(_ gravity: AVLayerVideoGravity) {
+        guard let layer = self.layer as? AVSampleBufferDisplayLayer, layer.videoGravity != gravity else { return }
+        layer.videoGravity = gravity
     }
 }
 
@@ -570,24 +615,30 @@ struct WindowAspectLock: NSViewRepresentable {
 
     final class Coordinator {
         var lastFitted = CGSize.zero
+        var lastAspect = CGSize.zero
+        var lastMinSize = NSSize.zero
+        var styledWindow = false
     }
 
     private func apply(_ window: NSWindow?, _ coordinator: Coordinator) {
         guard let window else { return }
-        window.backgroundColor = .black
-        window.titlebarAppearsTransparent = true
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.title = "镜投"
+        if !coordinator.styledWindow {
+            window.backgroundColor = .black
+            window.titlebarAppearsTransparent = true
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.title = "镜投"
+            coordinator.styledWindow = true
+        }
 
         let fullscreen = window.styleMask.contains(.fullScreen)
         bridge.setFillMode(letterbox: fullscreen || !streaming)
 
         if streaming, videoSize.width > 1, videoSize.height > 1 {
             if fullscreen {
-                window.contentAspectRatio = .zero
+                setAspect(.zero, on: window, coordinator: coordinator)
             } else {
-                window.contentAspectRatio = videoSize
-                window.contentMinSize = NSSize(width: 240, height: max(160, 240 * videoSize.height / videoSize.width))
+                let minSize = NSSize(width: 240, height: max(160, 240 * videoSize.height / videoSize.width))
+                setAspect(videoSize, minSize: minSize, on: window, coordinator: coordinator)
                 if coordinator.lastFitted != videoSize {
                     coordinator.lastFitted = videoSize
                     fit(window, to: videoSize)
@@ -595,8 +646,19 @@ struct WindowAspectLock: NSViewRepresentable {
             }
         } else {
             coordinator.lastFitted = .zero
-            window.contentAspectRatio = .zero
-            window.contentMinSize = NSSize(width: 760, height: 620)
+            setAspect(.zero, minSize: NSSize(width: 760, height: 620), on: window, coordinator: coordinator)
+        }
+    }
+
+    private func setAspect(_ aspect: CGSize, minSize: NSSize = .zero, on window: NSWindow, coordinator: Coordinator) {
+        if coordinator.lastAspect != aspect {
+            coordinator.lastAspect = aspect
+            window.contentAspectRatio = aspect
+        }
+        let resolvedMin = minSize == .zero ? coordinator.lastMinSize : minSize
+        if resolvedMin != .zero, coordinator.lastMinSize != resolvedMin {
+            coordinator.lastMinSize = resolvedMin
+            window.contentMinSize = resolvedMin
         }
     }
 
