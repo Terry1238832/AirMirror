@@ -6,7 +6,7 @@
 
 ## 安装
 
-1. 到 [Releases](https://github.com/Terry1238832/AirMirror/releases) 下载 `AirMirror-1.0.1.dmg`，或从官网下载
+1. 到 [Releases](https://github.com/Terry1238832/AirMirror/releases) 下载 `AirMirror-1.0.2.dmg`，或从官网下载
 2. 把「镜投」拖进「应用程序」
 3. 第一次打开如果被系统拦住：按住 Control 点图标，选择「打开」
 
@@ -20,4 +20,4 @@
 ./release.sh
 ```
 
-会生成 `dist/镜投-1.0.1.dmg`（发布到 GitHub 时文件名为 `AirMirror-1.0.1.dmg`）。画面接收使用 [UxPlay](https://github.com/FDH2/UxPlay) `59f65c8`，改动在 `scripts/patches/`。UxPlay 以 GPL-3.0 发布。
+会生成 `dist/镜投-1.0.2.dmg`（发布到 GitHub 时文件名为 `AirMirror-1.0.2.dmg`）。画面接收使用 [UxPlay](https://github.com/FDH2/UxPlay) `59f65c8`，改动在 `scripts/patches/`。UxPlay 以 GPL-3.0 发布。

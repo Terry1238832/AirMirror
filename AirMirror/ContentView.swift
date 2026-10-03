@@ -7,6 +7,8 @@ struct ContentView: View {
     @ObservedObject private var video: VideoBridge
     @State private var nameDraft: String = ""
     @State private var showSettings = false
+    @State private var showAdvanced = false
+    @StateObject private var updates = UpdateChecker()
 
     init() {
         _discovery = ObservedObject(wrappedValue: AppState.shared.discovery)
@@ -30,11 +32,13 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .frame(minWidth: 760, minHeight: 620)
         .background(
             WindowAspectLock(
                 streaming: video.hasVideo,
                 videoSize: video.videoSize,
+                allowsCustomAspect: appState.allowsCustomAspect,
+                aspectScale: appState.aspectScale,
+                resetToken: appState.aspectResetToken,
                 bridge: video
             )
         )
@@ -268,6 +272,10 @@ struct ContentView: View {
                 .disabled(appState.status == .missingEngine)
             }
 
+            advancedSettings
+
+            versionRow
+
             if let error = appState.lastError, appState.status == .failed || appState.status == .missingEngine {
                 Text(error)
                     .font(.caption)
@@ -285,6 +293,89 @@ struct ContentView: View {
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.45), radius: 24, y: 8)
+    }
+
+    private var advancedSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                showAdvanced.toggle()
+            } label: {
+                HStack {
+                    Text("高级设置")
+                    Spacer()
+                    Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(.white.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+
+            if showAdvanced {
+                Toggle("比例设置", isOn: $appState.allowsCustomAspect)
+                    .foregroundStyle(.white)
+                Text(appState.allowsCustomAspect
+                     ? "拖动滑块把画面调窄或调宽。窗口仍然只能放大或缩小。"
+                     : "窗口只能放大或缩小，投屏比例保持不变。")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.45))
+                    .fixedSize(horizontal: false, vertical: true)
+                if appState.allowsCustomAspect {
+                    HStack(spacing: 8) {
+                        Text("更窄")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.45))
+                        Slider(value: $appState.aspectScale, in: 0.6...1.8)
+                        Text("更宽")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
+                }
+                if video.videoSize.width > 1, video.videoSize.height > 1 {
+                    Text("设备画面 \(Int(video.videoSize.width.rounded())) × \(Int(video.videoSize.height.rounded()))")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.45))
+                }
+                Button("重置比例") {
+                    appState.resetAspectRatio()
+                }
+            }
+        }
+    }
+
+    private var versionRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("版本 \(AppVersion.current)")
+                    .foregroundStyle(.white.opacity(0.7))
+                Spacer()
+                Button(updates.phase == .checking ? "正在检查…" : "检查更新") {
+                    updates.check()
+                }
+                .disabled(updates.phase == .checking)
+            }
+            switch updates.phase {
+            case .idle, .checking:
+                EmptyView()
+            case .upToDate:
+                Text("已是最新版本")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.45))
+            case .available(let version, let url):
+                HStack {
+                    Text("发现新版本 \(version)")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Spacer()
+                    Button("下载") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            case .failed:
+                Text("没有连上，稍后再试")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+        }
     }
 
     private var displayName: String {

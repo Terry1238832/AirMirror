@@ -13,6 +13,8 @@ final class AppState: ObservableObject {
     private static let macKey = "deviceMAC"
     private static let qualityKey = "streamQuality"
     private static let fpsKey = "streamFPS"
+    private static let customAspectKey = "allowsCustomAspect"
+    private static let aspectScaleKey = "aspectScale"
 
     private let logger = Logger(subsystem: "com.liangyu.airmirror", category: "app")
     private let engine = ReceiverEngine()
@@ -43,6 +45,28 @@ final class AppState: ObservableObject {
             scheduleRestart()
         }
     }
+    /// Off: the window only scales at the device ratio. On: the ratio slider in settings is applied.
+    @Published var allowsCustomAspect: Bool {
+        didSet {
+            UserDefaults.standard.set(allowsCustomAspect, forKey: Self.customAspectKey)
+            if !allowsCustomAspect, aspectScale != 1 {
+                aspectScale = 1
+            }
+        }
+    }
+    /// 1 keeps the device picture. Below 1 is narrower, above 1 is wider.
+    @Published var aspectScale: Double {
+        didSet {
+            let clamped = min(1.8, max(0.6, aspectScale))
+            if clamped != aspectScale {
+                aspectScale = clamped
+                return
+            }
+            UserDefaults.standard.set(aspectScale, forKey: Self.aspectScaleKey)
+        }
+    }
+    /// Bumps when the user asks to restore the device aspect.
+    @Published private(set) var aspectResetToken = 0
     @Published var status: ReceiverStatus = .idle
     @Published var connectedClient: String?
     @Published var pinCode: String?
@@ -75,6 +99,9 @@ final class AppState: ObservableObject {
         } else {
             fps = .sixty
         }
+        allowsCustomAspect = defaults.bool(forKey: Self.customAspectKey)
+        let storedScale = defaults.double(forKey: Self.aspectScaleKey)
+        aspectScale = (storedScale >= 0.6 && storedScale <= 1.8) ? storedScale : 1
         if let storedMAC = defaults.string(forKey: Self.macKey), Self.isMAC(storedMAC) {
             deviceMAC = storedMAC
         } else {
@@ -169,6 +196,12 @@ final class AppState: ObservableObject {
     func restart() {
         stopReceiver()
         startReceiver()
+    }
+
+    func resetAspectRatio() {
+        aspectScale = 1
+        allowsCustomAspect = false
+        aspectResetToken += 1
     }
 
     func refreshNetwork() {

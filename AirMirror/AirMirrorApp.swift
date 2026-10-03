@@ -13,7 +13,7 @@ struct AirMirrorApp: App {
         }
         .defaultSize(width: 860, height: 720)
         .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentMinSize)
+        .windowResizability(.automatic)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }

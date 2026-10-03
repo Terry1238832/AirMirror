@@ -36,6 +36,9 @@ final class VideoBridge: ObservableObject {
 
     @Published private(set) var hasVideo = false
     @Published private(set) var videoSize: CGSize = .zero
+    /// Main-thread only. The AirPlay header arrives first; the decoded picture replaces it.
+    private var reportedSize = CGSize.zero
+    private var decodedSize = CGSize.zero
 
     private let logger = Logger(subsystem: "com.liangyu.airmirror", category: "video")
     private let stateLock = NSLock()
@@ -53,6 +56,8 @@ final class VideoBridge: ObservableObject {
     private var vps: Data?
     private var codec: UInt32 = 0
     private var pending = [Data]()
+    /// Decode-queue only. Avoids hopping to the main thread for every identical frame size.
+    private var lastDecodedSize = CGSize.zero
     /// Main-thread only. After a decoder failure, P-frames can't decode until the next IDR.
     private var waitingForKeyframe = false
     /// Avoid rewriting `videoGravity` with the same value; that redraws the layer.
@@ -128,8 +133,11 @@ final class VideoBridge: ObservableObject {
             self?.resetDecoder()
         }
         DispatchQueue.main.async { [weak self] in
-            self?.hasVideo = false
-            self?.videoSize = .zero
+            guard let self else { return }
+            self.hasVideo = false
+            self.reportedSize = .zero
+            self.decodedSize = .zero
+            self.videoSize = .zero
         }
         flushLayer()
     }
@@ -142,6 +150,40 @@ final class VideoBridge: ObservableObject {
             self.lastLetterbox = letterbox
             guard self.displayLayer.videoGravity != gravity else { return }
             self.displayLayer.videoGravity = gravity
+        }
+    }
+
+    private func noteReportedSize(_ size: CGSize) {
+        reportedSize = size
+        publishVideoSize()
+    }
+
+    private func noteDecodedSize(_ size: CGSize) {
+        decodedSize = size
+        publishVideoSize()
+    }
+
+    /// The decoded picture is what actually gets drawn, so it wins over the AirPlay header.
+    private func publishVideoSize() {
+        let next = (decodedSize.width > 1 && decodedSize.height > 1) ? decodedSize : reportedSize
+        guard next.width > 1, next.height > 1 else { return }
+        if abs(videoSize.width - next.width) > 0.5 || abs(videoSize.height - next.height) > 0.5 {
+            videoSize = next
+        }
+    }
+
+    private func publishDecodedSize(_ format: CMFormatDescription) {
+        let presentation = CMVideoFormatDescriptionGetPresentationDimensions(
+            format,
+            usePixelAspectRatio: true,
+            useCleanAperture: true
+        )
+        let next = CGSize(width: presentation.width, height: presentation.height)
+        guard next.width > 1, next.height > 1 else { return }
+        guard abs(lastDecodedSize.width - next.width) > 0.5 || abs(lastDecodedSize.height - next.height) > 0.5 else { return }
+        lastDecodedSize = next
+        DispatchQueue.main.async { [weak self] in
+            self?.noteDecodedSize(next)
         }
     }
 
@@ -200,7 +242,7 @@ final class VideoBridge: ObservableObject {
             case .size:
                 let next = CGSize(width: CGFloat(width), height: CGFloat(height))
                 DispatchQueue.main.async { [weak self] in
-                    self?.videoSize = next
+                    self?.noteReportedSize(next)
                 }
             case .packet:
                 decodeQueue.async { [weak self] in
@@ -233,6 +275,7 @@ final class VideoBridge: ObservableObject {
                 if key != formatParameterSets, let next = Self.makeHEVCFormat(vps: vps, sps: sps, pps: pps) {
                     formatDesc = next
                     formatParameterSets = key
+                    publishDecodedSize(next)
                 }
             }
         } else {
@@ -248,6 +291,7 @@ final class VideoBridge: ObservableObject {
                 if key != formatParameterSets, let next = Self.makeH264Format(sps: sps, pps: pps) {
                     formatDesc = next
                     formatParameterSets = key
+                    publishDecodedSize(next)
                 }
             }
         }
@@ -387,6 +431,7 @@ final class VideoBridge: ObservableObject {
     private func resetDecoder() {
         formatDesc = nil
         formatParameterSets = Data()
+        lastDecodedSize = .zero
         sps = nil
         pps = nil
         vps = nil
@@ -597,7 +642,12 @@ final class VideoHostView: NSView {
 struct WindowAspectLock: NSViewRepresentable {
     let streaming: Bool
     let videoSize: CGSize
+    let allowsCustomAspect: Bool
+    let aspectScale: Double
+    let resetToken: Int
     let bridge: VideoBridge
+
+    private static let waitingAspect = CGSize(width: 860, height: 720)
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -614,10 +664,27 @@ struct WindowAspectLock: NSViewRepresentable {
     }
 
     final class Coordinator {
-        var lastFitted = CGSize.zero
+        let delegate = AspectLockDelegate()
+        /// SwiftUI's window delegate is only held weakly by the window. Keep it alive after we wrap it.
+        var retainedDelegate: NSObject?
+        var styledWindow = false
+        var lockedAspect = CGSize.zero
+        var resetToken = 0
+        var customized = false
+        var didInitialVideoFit = false
         var lastAspect = CGSize.zero
         var lastMinSize = NSSize.zero
-        var styledWindow = false
+    }
+
+    private var nativeAspect: CGSize {
+        let base: CGSize
+        if streaming, videoSize.width > 1, videoSize.height > 1 {
+            base = videoSize
+        } else {
+            base = Self.waitingAspect
+        }
+        guard allowsCustomAspect, aspectScale > 0, abs(aspectScale - 1) > 0.001 else { return base }
+        return CGSize(width: base.width * aspectScale, height: base.height)
     }
 
     private func apply(_ window: NSWindow?, _ coordinator: Coordinator) {
@@ -629,24 +696,44 @@ struct WindowAspectLock: NSViewRepresentable {
             window.title = "镜投"
             coordinator.styledWindow = true
         }
+        if window.delegate !== coordinator.delegate {
+            if let existing = window.delegate, existing !== coordinator.delegate {
+                coordinator.delegate.forwarded = existing
+                coordinator.retainedDelegate = existing as? NSObject
+            }
+            window.delegate = coordinator.delegate
+        }
 
         let fullscreen = window.styleMask.contains(.fullScreen)
+        let native = nativeAspect
         bridge.setFillMode(letterbox: fullscreen || !streaming)
 
-        if streaming, videoSize.width > 1, videoSize.height > 1 {
-            if fullscreen {
-                setAspect(.zero, on: window, coordinator: coordinator)
-            } else {
-                let minSize = NSSize(width: 240, height: max(160, 240 * videoSize.height / videoSize.width))
-                setAspect(videoSize, minSize: minSize, on: window, coordinator: coordinator)
-                if coordinator.lastFitted != videoSize {
-                    coordinator.lastFitted = videoSize
-                    fit(window, to: videoSize)
-                }
-            }
+        if fullscreen {
+            coordinator.delegate.unlocked = true
+            return
+        }
+        coordinator.delegate.unlocked = false
+        coordinator.delegate.aspect = native
+
+        let aspectChanged = !sameAspect(coordinator.lockedAspect, native)
+        let needsSnap = coordinator.customized || aspectChanged || coordinator.resetToken != resetToken
+        setAspect(native, minSize: minimumContentSize(for: native), on: window, coordinator: coordinator)
+
+        if needsSnap, window.inLiveResize {
+            return
+        }
+        coordinator.customized = false
+        coordinator.lockedAspect = native
+        coordinator.resetToken = resetToken
+        guard needsSnap else { return }
+        if streaming, !coordinator.didInitialVideoFit {
+            coordinator.didInitialVideoFit = true
+            fit(window, to: native, coordinator: coordinator)
         } else {
-            coordinator.lastFitted = .zero
-            setAspect(.zero, minSize: NSSize(width: 760, height: 620), on: window, coordinator: coordinator)
+            snapKeepingScale(window, to: native, coordinator: coordinator)
+        }
+        if !streaming {
+            coordinator.didInitialVideoFit = false
         }
     }
 
@@ -662,14 +749,162 @@ struct WindowAspectLock: NSViewRepresentable {
         }
     }
 
-    private func fit(_ window: NSWindow, to size: CGSize) {
+    private func minimumContentSize(for aspect: CGSize) -> NSSize {
+        let ratio = aspect.width / max(aspect.height, 1)
+        let shortSide: CGFloat = 240
+        if ratio >= 1 {
+            return NSSize(width: shortSide * ratio, height: shortSide)
+        }
+        return NSSize(width: shortSide, height: shortSide / ratio)
+    }
+
+    private func fit(_ window: NSWindow, to size: CGSize, coordinator: Coordinator) {
         let screen = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let maxW = screen.width * 0.72
-        let maxH = screen.height * 0.78
-        let scale = min(maxW / size.width, maxH / size.height, 1.15)
-        let width = max(320, size.width * scale)
-        let height = width * size.height / size.width
-        window.setContentSize(NSSize(width: width, height: height))
+        let maxH = screen.height * 0.90
+        var scale = min(maxW / size.width, maxH / size.height)
+        if size.width * scale < 420 {
+            scale = 420 / size.width
+        }
+        var width = size.width * scale
+        var height = width * size.height / size.width
+        if height > maxH {
+            height = maxH
+            width = height * size.width / size.height
+        }
+        if width > screen.width * 0.96 {
+            width = screen.width * 0.96
+            height = width * size.height / size.width
+        }
+        resize(window, content: NSSize(width: width, height: height), coordinator: coordinator)
         window.center()
+    }
+
+    /// Keeps the current zoom and only corrects the shape.
+    private func snapKeepingScale(_ window: NSWindow, to aspect: CGSize, coordinator: Coordinator) {
+        let ratio = aspect.width / max(aspect.height, 1)
+        var content = window.contentRect(forFrameRect: window.frame).size
+        guard content.width > 1, content.height > 1 else { return }
+        let current = content.width / content.height
+        guard abs(current - ratio) / ratio > 0.01 else { return }
+        if current > ratio {
+            content.width = content.height * ratio
+        } else {
+            content.height = content.width / ratio
+        }
+        content = clamped(content, ratio: ratio, in: window)
+        resize(window, content: content, coordinator: coordinator)
+    }
+
+    private func clamped(_ content: CGSize, ratio: CGFloat, in window: NSWindow) -> CGSize {
+        let screen = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        var width = content.width
+        var height = content.height
+        let frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: NSSize(width: width, height: height)))
+        if frame.width > screen.width * 0.96 {
+            let scale = screen.width * 0.96 / frame.width
+            width *= scale
+            height *= scale
+        }
+        let frame2 = window.frameRect(forContentRect: NSRect(origin: .zero, size: NSSize(width: width, height: height)))
+        if frame2.height > screen.height * 0.96 {
+            let scale = screen.height * 0.96 / frame2.height
+            width *= scale
+            height *= scale
+        }
+        let minSize = minimumContentSize(for: CGSize(width: ratio, height: 1))
+        if width < minSize.width {
+            width = minSize.width
+            height = width / ratio
+        }
+        return CGSize(width: width, height: height)
+    }
+
+    private func resize(_ window: NSWindow, content: NSSize, coordinator: Coordinator) {
+        coordinator.delegate.correcting = true
+        window.setContentSize(content)
+        coordinator.delegate.correcting = false
+    }
+
+    private func sameAspect(_ lhs: CGSize, _ rhs: CGSize) -> Bool {
+        guard lhs.width > 1, lhs.height > 1, rhs.width > 1, rhs.height > 1 else { return false }
+        let left = lhs.width / lhs.height
+        let right = rhs.width / rhs.height
+        return abs(left - right) / right < 0.01
+    }
+}
+
+/// Keeps a SwiftUI window on one aspect ratio. Replacing the delegate is wrapped so SwiftUI still receives its callbacks.
+final class AspectLockDelegate: NSObject, NSWindowDelegate {
+    weak var forwarded: NSWindowDelegate?
+    var aspect = CGSize.zero
+    var unlocked = false
+    var correcting = false
+
+    func windowWillResize(_ window: NSWindow, to frameSize: NSSize) -> NSSize {
+        _ = forwarded?.windowWillResize?(window, to: frameSize)
+        if unlocked || window.styleMask.contains(.fullScreen) || aspect.width <= 1 || aspect.height <= 1 {
+            return frameSize
+        }
+        return constrained(window, proposed: frameSize)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        if let window = notification.object as? NSWindow, !unlocked {
+            correctIfNeeded(window)
+        }
+        forwarded?.windowDidResize?(notification)
+    }
+
+    override func responds(to aSelector: Selector!) -> Bool {
+        if super.responds(to: aSelector) { return true }
+        return forwarded?.responds(to: aSelector) ?? false
+    }
+
+    override func forwardingTarget(for aSelector: Selector!) -> Any? {
+        if super.responds(to: aSelector) { return nil }
+        return forwarded
+    }
+
+    private func correctIfNeeded(_ window: NSWindow) {
+        guard !correcting, aspect.width > 1, aspect.height > 1, !window.styleMask.contains(.fullScreen) else { return }
+        let content = window.contentRect(forFrameRect: window.frame).size
+        guard content.width > 1, content.height > 1 else { return }
+        let ratio = aspect.width / aspect.height
+        let current = content.width / content.height
+        guard abs(current - ratio) / ratio > 0.01 else { return }
+        var size = content
+        if current > ratio {
+            size.width = size.height * ratio
+        } else {
+            size.height = size.width / ratio
+        }
+        correcting = true
+        window.setContentSize(size)
+        correcting = false
+    }
+
+    private func constrained(_ window: NSWindow, proposed: NSSize) -> NSSize {
+        let ratio = aspect.width / aspect.height
+        var content = window.contentRect(forFrameRect: NSRect(origin: .zero, size: proposed)).size
+        let current = window.contentRect(forFrameRect: window.frame).size
+        let widthDelta = abs(content.width - current.width)
+        let heightDelta = abs(content.height - current.height)
+        if widthDelta >= heightDelta {
+            content.height = content.width / ratio
+        } else {
+            content.width = content.height * ratio
+        }
+        let shortSide: CGFloat = 240
+        if ratio >= 1 {
+            if content.height < shortSide {
+                content.height = shortSide
+                content.width = shortSide * ratio
+            }
+        } else if content.width < shortSide {
+            content.width = shortSide
+            content.height = shortSide / ratio
+        }
+        return window.frameRect(forContentRect: NSRect(origin: .zero, size: content)).size
     }
 }
