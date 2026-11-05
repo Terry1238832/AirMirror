@@ -165,7 +165,7 @@ final class VideoBridge: ObservableObject {
             }
             if self.displayLayer.sampleBufferRenderer.isReadyForMoreMediaData || self.displayLayer.sampleBufferRenderer.status == .failed {
                 self.enqueueOnLayer(sample, keyframe: true)
-                self.hasVideo = true
+                if !self.hasVideo { self.hasVideo = true }
             }
         }
     }
@@ -706,6 +706,7 @@ struct WindowAspectLock: NSViewRepresentable {
     let allowsCustomAspect: Bool
     let aspectScale: Double
     let resetToken: Int
+    let reduceMotion: Bool
     let bridge: VideoBridge
 
     private static let waitingAspect = CGSize(width: 860, height: 720)
@@ -735,6 +736,90 @@ struct WindowAspectLock: NSViewRepresentable {
         var didInitialVideoFit = false
         var lastAspect = CGSize.zero
         var lastMinSize = NSSize.zero
+        var lastStreaming: Bool?
+        var lastVideoSize = CGSize.zero
+        var lastCustomAspect: Bool?
+        var lastAspectScale: Double?
+        var isAnimating = false
+        var isFullscreenTransition = false
+        var animationGeneration = 0
+        var targetFrame: NSRect?
+        var reapply: (() -> Void)?
+        private weak var observedWindow: NSWindow?
+        private weak var bridge: VideoBridge?
+        private var observers: [NSObjectProtocol] = []
+        private var mouseMonitor: Any?
+
+        func observe(_ window: NSWindow, bridge: VideoBridge) {
+            guard observedWindow !== window else { return }
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
+            if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
+            observedWindow = window
+            self.bridge = bridge
+            let center = NotificationCenter.default
+            let starts = [NSWindow.willStartLiveResizeNotification, NSWindow.willEnterFullScreenNotification, NSWindow.willExitFullScreenNotification]
+            for name in starts {
+                observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self, weak window] notification in
+                    guard let self, let window else { return }
+                    // AppKit's own frame animator also brackets its work with live-resize notifications.
+                    if notification.name == NSWindow.willStartLiveResizeNotification, self.isAnimating { return }
+                    self.isFullscreenTransition = notification.name != NSWindow.willStartLiveResizeNotification
+                    self.cancelResize(window)
+                    self.lockedAspect = .zero
+                    self.delegate.unlocked = self.isFullscreenTransition
+                    self.bridge?.setFillMode(letterbox: self.isFullscreenTransition || self.lastStreaming != true)
+                })
+            }
+            let ends = [NSWindow.didEndLiveResizeNotification, NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification]
+            for name in ends {
+                observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] notification in
+                    guard let self else { return }
+                    if notification.name == NSWindow.didEndLiveResizeNotification, self.isAnimating { return }
+                    self.isFullscreenTransition = false
+                    DispatchQueue.main.async { [weak self] in self?.reapply?() }
+                })
+            }
+            observers.append(center.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self, weak window] _ in
+                guard let self, let window else { return }
+                self.cancelResize(window)
+            })
+            delegate.onFullscreenFailure = { [weak self] in
+                self?.isFullscreenTransition = false
+                self?.reapply?()
+            }
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak self, weak window] event in
+                guard let self, let window, self.isAnimating, event.window === window else { return event }
+                // Cancel before AppKit starts the user's drag, including when its animator was already resizing.
+                self.cancelResize(window)
+                self.lockedAspect = .zero
+                return event
+            }
+        }
+
+        /// AppKit documents a zero-duration animator write as cancelling its in-flight property animation.
+        func cancelResize(_ window: NSWindow, finishAtTarget: Bool = false) {
+            animationGeneration += 1
+            guard isAnimating else { return }
+            let frame = finishAtTarget ? (targetFrame ?? window.frame) : window.frame
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0
+                window.animator().setFrame(frame, display: true)
+            }
+            isAnimating = false
+            targetFrame = nil
+            delegate.correcting = false
+            if !isFullscreenTransition {
+                window.contentAspectRatio = delegate.aspect
+                window.contentMinSize = lastMinSize
+            }
+            bridge?.setFillMode(letterbox: window.styleMask.contains(.fullScreen) || isFullscreenTransition || lastStreaming != true)
+        }
+
+        deinit {
+            observers.forEach(NotificationCenter.default.removeObserver)
+            if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
+        }
     }
 
     private var nativeAspect: CGSize {
@@ -765,11 +850,34 @@ struct WindowAspectLock: NSViewRepresentable {
             window.delegate = coordinator.delegate
         }
 
+        coordinator.observe(window, bridge: bridge)
+        coordinator.reapply = { [weak window, weak coordinator] in
+            guard let coordinator else { return }
+            apply(window, coordinator)
+        }
+
         let fullscreen = window.styleMask.contains(.fullScreen)
         let native = nativeAspect
-        bridge.setFillMode(letterbox: fullscreen || !streaming)
+        let initialized = coordinator.lastStreaming != nil
+        let streamChanged = coordinator.lastStreaming != streaming
+        let sourceAspectChanged = streaming && !sameAspect(coordinator.lastVideoSize, videoSize)
+        let resetChanged = coordinator.resetToken != resetToken
+        let customChanged = coordinator.lastCustomAspect != allowsCustomAspect || coordinator.lastAspectScale != aspectScale
+        let userIsResizing = window.inLiveResize && !coordinator.isAnimating
+        let shouldAnimate = initialized && !reduceMotion && !userIsResizing &&
+            (resetChanged || (!customChanged && (streamChanged || sourceAspectChanged)))
+        let referenceFrame = coordinator.targetFrame ?? window.frame
+        coordinator.lastStreaming = streaming
+        coordinator.lastVideoSize = videoSize
+        coordinator.lastCustomAspect = allowsCustomAspect
+        coordinator.lastAspectScale = aspectScale
 
-        if fullscreen {
+        if coordinator.isAnimating, reduceMotion || customChanged || streamChanged || sourceAspectChanged || resetChanged {
+            coordinator.cancelResize(window, finishAtTarget: reduceMotion && !customChanged && !streamChanged && !sourceAspectChanged && !resetChanged)
+        }
+        bridge.setFillMode(letterbox: fullscreen || coordinator.isFullscreenTransition || coordinator.isAnimating || !streaming)
+
+        if fullscreen || coordinator.isFullscreenTransition {
             coordinator.delegate.unlocked = true
             return
         }
@@ -778,9 +886,11 @@ struct WindowAspectLock: NSViewRepresentable {
 
         let aspectChanged = !sameAspect(coordinator.lockedAspect, native)
         let needsSnap = coordinator.customized || aspectChanged || coordinator.resetToken != resetToken
-        setAspect(native, minSize: minimumContentSize(for: native), on: window, coordinator: coordinator)
+        if !coordinator.isAnimating, !(shouldAnimate && needsSnap && !userIsResizing) {
+            setAspect(native, minSize: minimumContentSize(for: native), on: window, coordinator: coordinator)
+        }
 
-        if needsSnap, window.inLiveResize {
+        if needsSnap, userIsResizing {
             return
         }
         coordinator.customized = false
@@ -789,9 +899,9 @@ struct WindowAspectLock: NSViewRepresentable {
         guard needsSnap else { return }
         if streaming, !coordinator.didInitialVideoFit {
             coordinator.didInitialVideoFit = true
-            fit(window, to: native, coordinator: coordinator)
+            fit(window, to: native, animated: shouldAnimate, coordinator: coordinator)
         } else {
-            snapKeepingScale(window, to: native, coordinator: coordinator)
+            snapKeepingScale(window, to: native, referenceFrame: referenceFrame, animated: shouldAnimate, coordinator: coordinator)
         }
         if !streaming {
             coordinator.didInitialVideoFit = false
@@ -799,12 +909,12 @@ struct WindowAspectLock: NSViewRepresentable {
     }
 
     private func setAspect(_ aspect: CGSize, minSize: NSSize = .zero, on window: NSWindow, coordinator: Coordinator) {
-        if coordinator.lastAspect != aspect {
+        if coordinator.lastAspect != aspect || window.contentAspectRatio != aspect {
             coordinator.lastAspect = aspect
             window.contentAspectRatio = aspect
         }
         let resolvedMin = minSize == .zero ? coordinator.lastMinSize : minSize
-        if resolvedMin != .zero, coordinator.lastMinSize != resolvedMin {
+        if resolvedMin != .zero, coordinator.lastMinSize != resolvedMin || window.contentMinSize != resolvedMin {
             coordinator.lastMinSize = resolvedMin
             window.contentMinSize = resolvedMin
         }
@@ -819,7 +929,7 @@ struct WindowAspectLock: NSViewRepresentable {
         return NSSize(width: shortSide, height: shortSide / ratio)
     }
 
-    private func fit(_ window: NSWindow, to size: CGSize, coordinator: Coordinator) {
+    private func fit(_ window: NSWindow, to size: CGSize, animated: Bool, coordinator: Coordinator) {
         let screen = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let maxW = screen.width * 0.72
         let maxH = screen.height * 0.90
@@ -837,14 +947,13 @@ struct WindowAspectLock: NSViewRepresentable {
             width = screen.width * 0.96
             height = width * size.height / size.width
         }
-        resize(window, content: NSSize(width: width, height: height), coordinator: coordinator)
-        window.center()
+        resize(window, content: NSSize(width: width, height: height), centerOnScreen: true, animated: animated, coordinator: coordinator)
     }
 
     /// Keeps the current zoom and only corrects the shape.
-    private func snapKeepingScale(_ window: NSWindow, to aspect: CGSize, coordinator: Coordinator) {
+    private func snapKeepingScale(_ window: NSWindow, to aspect: CGSize, referenceFrame: NSRect, animated: Bool, coordinator: Coordinator) {
         let ratio = aspect.width / max(aspect.height, 1)
-        var content = window.contentRect(forFrameRect: window.frame).size
+        var content = window.contentRect(forFrameRect: referenceFrame).size
         guard content.width > 1, content.height > 1 else { return }
         let current = content.width / content.height
         guard abs(current - ratio) / ratio > 0.01 else { return }
@@ -854,7 +963,7 @@ struct WindowAspectLock: NSViewRepresentable {
             content.height = content.width / ratio
         }
         content = clamped(content, ratio: ratio, in: window)
-        resize(window, content: content, coordinator: coordinator)
+        resize(window, content: content, animated: animated, coordinator: coordinator)
     }
 
     private func clamped(_ content: CGSize, ratio: CGFloat, in window: NSWindow) -> CGSize {
@@ -881,10 +990,46 @@ struct WindowAspectLock: NSViewRepresentable {
         return CGSize(width: width, height: height)
     }
 
-    private func resize(_ window: NSWindow, content: NSSize, coordinator: Coordinator) {
+    private func resize(_ window: NSWindow, content: NSSize, centerOnScreen: Bool = false, animated: Bool, coordinator: Coordinator) {
+        let screen = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? window.frame
+        let frameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: content)).size
+        let center = centerOnScreen ? NSPoint(x: screen.midX, y: screen.midY) : NSPoint(x: window.frame.midX, y: window.frame.midY)
+        var target = NSRect(x: center.x - frameSize.width / 2, y: center.y - frameSize.height / 2, width: frameSize.width, height: frameSize.height)
+        target.origin.x = min(max(screen.minX, target.minX), max(screen.minX, screen.maxX - target.width))
+        target.origin.y = min(max(screen.minY, target.minY), max(screen.minY, screen.maxY - target.height))
+        guard abs(window.frame.width - target.width) > 0.5 || abs(window.frame.height - target.height) > 0.5 ||
+                abs(window.frame.minX - target.minX) > 0.5 || abs(window.frame.minY - target.minY) > 0.5 else { return }
         coordinator.delegate.correcting = true
-        window.setContentSize(content)
-        coordinator.delegate.correcting = false
+        guard animated else {
+            window.setFrame(target, display: true)
+            coordinator.delegate.correcting = false
+            return
+        }
+        coordinator.animationGeneration += 1
+        let generation = coordinator.animationGeneration
+        coordinator.isAnimating = true
+        coordinator.targetFrame = target
+        coordinator.lastAspect = nativeAspect
+        coordinator.lastMinSize = minimumContentSize(for: nativeAspect)
+        window.contentAspectRatio = .zero
+        window.contentMinSize = .zero
+        bridge.setFillMode(letterbox: true)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.28
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(target, display: true)
+        } completionHandler: { [weak window, weak coordinator] in
+            DispatchQueue.main.async {
+                guard let window, let coordinator, coordinator.animationGeneration == generation else { return }
+                coordinator.isAnimating = false
+                coordinator.targetFrame = nil
+                coordinator.delegate.correcting = true
+                window.setFrame(target, display: true)
+                setAspect(nativeAspect, minSize: minimumContentSize(for: nativeAspect), on: window, coordinator: coordinator)
+                coordinator.delegate.correcting = false
+                bridge.setFillMode(letterbox: window.styleMask.contains(.fullScreen) || !streaming)
+            }
+        }
     }
 
     private func sameAspect(_ lhs: CGSize, _ rhs: CGSize) -> Bool {
@@ -901,10 +1046,11 @@ final class AspectLockDelegate: NSObject, NSWindowDelegate {
     var aspect = CGSize.zero
     var unlocked = false
     var correcting = false
+    var onFullscreenFailure: (() -> Void)?
 
     func windowWillResize(_ window: NSWindow, to frameSize: NSSize) -> NSSize {
         _ = forwarded?.windowWillResize?(window, to: frameSize)
-        if unlocked || window.styleMask.contains(.fullScreen) || aspect.width <= 1 || aspect.height <= 1 {
+        if correcting || unlocked || window.styleMask.contains(.fullScreen) || aspect.width <= 1 || aspect.height <= 1 {
             return frameSize
         }
         return constrained(window, proposed: frameSize)
@@ -915,6 +1061,16 @@ final class AspectLockDelegate: NSObject, NSWindowDelegate {
             correctIfNeeded(window)
         }
         forwarded?.windowDidResize?(notification)
+    }
+
+    func windowDidFailToEnterFullScreen(_ window: NSWindow) {
+        onFullscreenFailure?()
+        forwarded?.windowDidFailToEnterFullScreen?(window)
+    }
+
+    func windowDidFailToExitFullScreen(_ window: NSWindow) {
+        onFullscreenFailure?()
+        forwarded?.windowDidFailToExitFullScreen?(window)
     }
 
     override func responds(to aSelector: Selector!) -> Bool {

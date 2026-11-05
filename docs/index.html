@@ -22,11 +22,11 @@
   </header>
   <main>
     <section class="hero shell">
-      <p class="release-pill"><span>1.1.0</span> 新增 USB 有线投屏</p>
+      <p class="release-pill"><span>1.1.1</span> 更自然的界面与窗口动效</p>
       <h1>手机画面，<br><span>投到 Mac。</span></h1>
       <p class="hero-description">iPhone 和 iPad，无线镜像或数据线直连。<br>校园网不互通，插线也能投。</p>
       <div class="hero-actions">
-        <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.1.0/AirMirror-1.1.0.dmg">下载 Mac 版</a>
+        <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.1.1/AirMirror-1.1.1.dmg">下载 Mac 版</a>
         <a class="button button-github" href="https://github.com/Terry1238832/AirMirror">GitHub</a>
       </div>
       <p class="compatibility">macOS 14+ <span>·</span> Apple 芯片 <span>·</span> 约 26 MB</p>
@@ -46,7 +46,7 @@
       <div class="steps">
         <article><span>01</span><h3>选择无线投屏</h3><p>打开镜投，选择「无线投屏」。手机和 Mac 连接到可以互相发现的同一局域网。</p></article>
         <article><span>02</span><h3>点屏幕镜像</h3><p>在 iPhone 或 iPad 的控制中心点「屏幕镜像」，选择镜投。</p></article>
-        <article><span>03</span><h3>看这一个窗口</h3><p>等待页和投屏画面在同一个窗口。全屏时保持手机原来的比例。</p></article>
+        <article><span>03</span><h3>看这一个窗口</h3><p>等待页和投屏画面在同一个窗口，切换时自然过渡。窗口平滑调整尺寸，全屏时保持设备原来的比例。</p></article>
       </div>
     </section>
     <section class="section install" id="usb">
@@ -79,13 +79,14 @@
       <details><summary>USB 为什么需要相机权限？</summary><p>macOS 将数据线连接的 iPhone / iPad 屏幕作为采集源，归入相机权限。请在「隐私与安全性 → 相机」中允许镜投。有线模式接收的是设备屏幕。</p></details>
       <details><summary>插线后没有画面？</summary><p>请确认线缆支持数据传输，解锁 iPhone / iPad 并信任这台 Mac，再点「重新检测设备」。如果其他应用正在采集同一设备，请先关闭它们。</p></details>
       <details><summary>有线投屏可以播放设备声音吗？</summary><p>可以。在设置中开启「播放设备声音」，并允许麦克风权限，用于接收数据线传来的设备音频。此选项默认关闭；拒绝音频权限不会阻止画面投屏。</p></details>
+      <details><summary>可以减少界面动画吗？</summary><p>可以。镜投会跟随 macOS 的「减少动态效果」设置，收敛设置面板、内容切换和窗口调整的动效。</p></details>
       <details><summary>画面会不会被拉变形？</summary><p>窗口会锁住设备比例。全屏时四周留黑边，画面本身按原来的宽高显示。</p></details>
       <details><summary>为什么第一次打开要手动允许？</summary><p>安装包没有经过 Apple 公证。这只影响第一次打开，按住 Control 点「打开」即可。</p></details>
     </section>
     <section class="download shell" id="download">
       <img src="app-icon.png" alt="" width="80" height="80">
       <h2>把手机屏幕，放到 Mac 上。</h2>
-      <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.1.0/AirMirror-1.1.0.dmg">下载镜投 1.1.0</a>
+      <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.1.1/AirMirror-1.1.1.dmg">下载镜投 1.1.1</a>
       <p class="meta">macOS 14+ · Apple 芯片</p>
       <p class="caveat">未经 Apple 公证。首次打开请按住 Control 再点「打开」。<a href="SHA256SUMS.txt">SHA-256</a></p>
     </section>

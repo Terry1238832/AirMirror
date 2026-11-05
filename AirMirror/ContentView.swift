@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var appState: AppState
     @ObservedObject private var discovery: DiscoveryMonitor
     @ObservedObject private var video: VideoBridge
@@ -20,15 +21,28 @@ struct ContentView: View {
             Color.black.ignoresSafeArea()
             VideoCanvas(bridge: video)
                 .opacity(video.hasVideo ? 1 : 0)
+                .animation(fadeAnimation, value: video.hasVideo)
 
-            if !video.hasVideo {
-                waitingLayout
-            } else {
-                streamingOverlay
+            ZStack {
+                if !video.hasVideo {
+                    waitingLayout
+                        .transition(.opacity)
+                } else {
+                    streamingOverlay
+                        .transition(.opacity)
+                }
             }
+            .animation(fadeAnimation, value: video.hasVideo)
+            .allowsHitTesting(!showSettings)
+            .accessibilityHidden(showSettings)
 
             if showSettings {
-                settingsOverlay
+                settingsBackdrop
+                    .transition(.opacity)
+                    .zIndex(1)
+                settingsPanel
+                    .transition(panelTransition)
+                    .zIndex(2)
             }
         }
         .preferredColorScheme(.dark)
@@ -39,6 +53,7 @@ struct ContentView: View {
                 allowsCustomAspect: appState.allowsCustomAspect,
                 aspectScale: appState.aspectScale,
                 resetToken: appState.aspectResetToken,
+                reduceMotion: reduceMotion,
                 bridge: video
             )
         )
@@ -52,9 +67,34 @@ struct ContentView: View {
         }
         .onChange(of: video.hasVideo) { _, streaming in
             if streaming {
-                showSettings = false
+                withAnimation(panelAnimation) {
+                    showSettings = false
+                }
             }
         }
+        .onExitCommand {
+            if showSettings { dismissSettings() }
+        }
+    }
+
+    private var fadeAnimation: Animation { .easeInOut(duration: reduceMotion ? 0.1 : 0.2) }
+    private var panelAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.1) : .spring(response: 0.36, dampingFraction: 0.9)
+    }
+    private var panelTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 12)).combined(with: .scale(scale: 0.985, anchor: .top))
+    }
+    private var detailTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 6))
+    }
+
+    private func presentSettings() {
+        withAnimation(panelAnimation) { showSettings = true }
+    }
+
+    private func dismissSettings() {
+        commitName()
+        withAnimation(panelAnimation) { showSettings = false }
     }
 
     private var waitingLayout: some View {
@@ -67,13 +107,13 @@ struct ContentView: View {
                     .padding(.bottom, 16)
             }
             Button {
-                showSettings = true
+                presentSettings()
             } label: {
                 Label("设置", systemImage: "gearshape")
                     .font(.callout.weight(.medium))
                     .foregroundStyle(.white.opacity(0.72))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(SoftButtonStyle())
             .padding(.bottom, 22)
         }
     }
@@ -91,14 +131,14 @@ struct ContentView: View {
                 }
                 Spacer()
                 Button {
-                    showSettings = true
+                    presentSettings()
                 } label: {
                     Image(systemName: "gearshape.fill")
                         .foregroundStyle(.white)
                         .padding(8)
                         .background(.black.opacity(0.45), in: Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(SoftButtonStyle(hoverScale: 1.045))
             }
             .padding(.horizontal, 14)
             .padding(.top, 40)
@@ -106,23 +146,24 @@ struct ContentView: View {
         }
     }
 
-    private var settingsOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.55)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    commitName()
-                    showSettings = false
-                }
-            ScrollView(.vertical, showsIndicators: false) {
-                settingsCard
-                    .frame(maxWidth: 520)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 48)
-                    .padding(.bottom, 28)
-                    .frame(maxWidth: .infinity)
-            }
+    private var settingsBackdrop: some View {
+        Color.black.opacity(0.55)
+            .ignoresSafeArea()
+            .onTapGesture { dismissSettings() }
+    }
+
+    private var settingsPanel: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            settingsCard
+                .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .onTapGesture { }
+                .frame(maxWidth: 520)
+                .padding(.horizontal, 28)
+                .padding(.top, 48)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity)
         }
+        .onTapGesture { dismissSettings() }
     }
 
     private var waiting: some View {
@@ -131,6 +172,8 @@ struct ContentView: View {
                 .font(.system(size: 38, weight: .semibold))
                 .foregroundStyle(.white)
                 .symbolRenderingMode(.hierarchical)
+                .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+                .animation(fadeAnimation, value: appState.connectionMode)
 
             Text("等待投屏")
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
@@ -145,17 +188,21 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 520)
+                .contentTransition(.opacity)
+                .animation(fadeAnimation, value: statusLine)
 
             if appState.connectionMode == .wireless, let pin = appState.pinCode {
                 Text("配对码 \(pin)")
                     .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
                     .foregroundStyle(.white)
+                    .transition(detailTransition)
             }
 
             instructionCard
                 .padding(.top, 6)
         }
         .padding(.horizontal, 36)
+        .animation(fadeAnimation, value: appState.pinCode)
     }
 
     private var statusLine: String {
@@ -177,37 +224,52 @@ struct ContentView: View {
     }
 
     private var instructionCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        ZStack(alignment: .topLeading) {
             if appState.connectionMode == .wireless {
-                instructionRow(number: "1", title: "打开控制中心") {
-                    instructionText("在屏幕右上角往下拉（有 Home 键的设备从底部上滑）")
-                }
-                instructionRow(number: "2", title: "点「屏幕镜像」") {
-                    ScreenMirroringButton()
-                }
-                instructionRow(number: "3", title: "选择「\(displayName)」") {
-                    instructionText("设备需要与 Mac 连接到可以互相访问的局域网。显示名可以在设置里改。")
-                }
+                wirelessInstructions
+                    .transition(detailTransition)
             } else {
-                instructionRow(number: "1", title: "用数据线连接 iPad 和 Mac") {
-                    instructionText("使用支持数据传输的 USB-C 或 Lightning 线，无需连接同一个 Wi-Fi。")
-                }
-                instructionRow(number: "2", title: "解锁 iPad，点「信任」") {
-                    instructionText("在 iPad 上确认「信任此电脑」，并按提示输入设备密码。")
-                }
-                instructionRow(number: "3", title: "允许访问后，画面自动出现") {
-                    instructionText("macOS 将有线画面归为相机输入，请允许镜投访问相机。无需在 iPad 上打开「屏幕镜像」。")
-                }
-                Divider().overlay(Color.white.opacity(0.08))
-                wiredDeviceControls
+                wiredInstructions
+                    .transition(detailTransition)
             }
         }
         .padding(22)
-        .frame(maxWidth: 520)
+        .frame(maxWidth: 520, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color.white.opacity(0.07))
         )
+        .animation(panelAnimation, value: appState.connectionMode)
+    }
+
+    private var wirelessInstructions: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            instructionRow(number: "1", title: "打开控制中心") {
+                instructionText("在屏幕右上角往下拉（有 Home 键的设备从底部上滑）")
+            }
+            instructionRow(number: "2", title: "点「屏幕镜像」") {
+                ScreenMirroringButton()
+            }
+            instructionRow(number: "3", title: "选择「\(displayName)」") {
+                instructionText("设备需要与 Mac 连接到可以互相访问的局域网。显示名可以在设置里改。")
+            }
+        }
+    }
+
+    private var wiredInstructions: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            instructionRow(number: "1", title: "用数据线连接 iPad 和 Mac") {
+                instructionText("使用支持数据传输的 USB-C 或 Lightning 线，无需连接同一个 Wi-Fi。")
+            }
+            instructionRow(number: "2", title: "解锁 iPad，点「信任」") {
+                instructionText("在 iPad 上确认「信任此电脑」，并按提示输入设备密码。")
+            }
+            instructionRow(number: "3", title: "允许访问后，画面自动出现") {
+                instructionText("macOS 将有线画面归为相机输入，请允许镜投访问相机。无需在 iPad 上打开「屏幕镜像」。")
+            }
+            Divider().overlay(Color.white.opacity(0.08))
+            wiredDeviceControls
+        }
     }
 
     private func instructionText(_ text: String) -> some View {
@@ -288,34 +350,15 @@ struct ContentView: View {
                     .foregroundStyle(.white)
                 Spacer()
                 Button("完成") {
-                    commitName()
-                    showSettings = false
+                    dismissSettings()
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(SoftButtonStyle())
                 .foregroundStyle(.white.opacity(0.7))
             }
 
             connectionPicker
 
-            if appState.connectionMode == .wireless {
-                wirelessSettings
-            } else {
-                wiredDeviceControls
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("播放设备声音", isOn: $appState.wiredAudioEnabled)
-                        .foregroundStyle(.white)
-                    Text("开启时需要麦克风权限，用于接收数据线传来的设备声音。")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.45))
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let message = appState.wiredAudioMessage {
-                        Text(message)
-                            .font(.caption)
-                            .foregroundStyle(.orange.opacity(0.85))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
+            connectionSettings
 
             HStack {
                 if appState.isReceiverActive {
@@ -357,6 +400,36 @@ struct ContentView: View {
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.45), radius: 24, y: 8)
+        .animation(panelAnimation, value: appState.connectionMode)
+    }
+
+    private var connectionSettings: some View {
+        ZStack(alignment: .topLeading) {
+            if appState.connectionMode == .wireless {
+                wirelessSettings
+                    .transition(detailTransition)
+            } else {
+                VStack(alignment: .leading, spacing: 16) {
+                    wiredDeviceControls
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("播放设备声音", isOn: $appState.wiredAudioEnabled)
+                            .foregroundStyle(.white)
+                        Text("开启时需要麦克风权限，用于接收数据线传来的设备声音。")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.45))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let message = appState.wiredAudioMessage {
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.orange.opacity(0.85))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .transition(.opacity)
+                        }
+                    }
+                }
+                .transition(detailTransition)
+            }
+        }
     }
 
     private var wirelessSettings: some View {
@@ -405,48 +478,59 @@ struct ContentView: View {
     private var advancedSettings: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button {
-                showAdvanced.toggle()
+                withAnimation(panelAnimation) { showAdvanced.toggle() }
             } label: {
                 HStack {
                     Text("高级设置")
                     Spacer()
-                    Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                    Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
+                        .rotationEffect(.degrees(showAdvanced ? 90 : 0))
+                        .animation(reduceMotion ? nil : panelAnimation, value: showAdvanced)
                 }
                 .foregroundStyle(.white.opacity(0.7))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(SoftButtonStyle())
 
             if showAdvanced {
-                Toggle("比例设置", isOn: $appState.allowsCustomAspect)
-                    .foregroundStyle(.white)
-                Text(appState.allowsCustomAspect
-                     ? "拖动滑块把画面调窄或调宽。窗口仍然只能放大或缩小。"
-                     : "窗口只能放大或缩小，投屏比例保持不变。")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.45))
-                    .fixedSize(horizontal: false, vertical: true)
-                if appState.allowsCustomAspect {
-                    HStack(spacing: 8) {
-                        Text("更窄")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.45))
-                        Slider(value: $appState.aspectScale, in: 0.6...1.8)
-                        Text("更宽")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.45))
-                    }
-                }
-                if video.videoSize.width > 1, video.videoSize.height > 1 {
-                    Text("设备画面 \(Int(video.videoSize.width.rounded())) × \(Int(video.videoSize.height.rounded()))")
+                advancedControls
+                    .transition(detailTransition)
+            }
+        }
+    }
+
+    private var advancedControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle("比例设置", isOn: $appState.allowsCustomAspect)
+                .foregroundStyle(.white)
+            Text(appState.allowsCustomAspect
+                 ? "拖动滑块把画面调窄或调宽。窗口仍然只能放大或缩小。"
+                 : "窗口只能放大或缩小，投屏比例保持不变。")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.45))
+                .fixedSize(horizontal: false, vertical: true)
+            if appState.allowsCustomAspect {
+                HStack(spacing: 8) {
+                    Text("更窄")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.45))
+                    Slider(value: $appState.aspectScale, in: 0.6...1.8)
+                    Text("更宽")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.45))
                 }
-                Button("重置比例") {
-                    appState.resetAspectRatio()
-                }
+                .transition(detailTransition)
+            }
+            if video.videoSize.width > 1, video.videoSize.height > 1 {
+                Text("设备画面 \(Int(video.videoSize.width.rounded())) × \(Int(video.videoSize.height.rounded()))")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            Button("重置比例") {
+                appState.resetAspectRatio()
             }
         }
+        .animation(panelAnimation, value: appState.allowsCustomAspect)
     }
 
     private var versionRow: some View {
@@ -494,6 +578,31 @@ struct ContentView: View {
         let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         appState.receiverName = trimmed.isEmpty ? "镜投" : trimmed
         nameDraft = appState.receiverName
+    }
+}
+
+private struct SoftButtonStyle: ButtonStyle {
+    var hoverScale: CGFloat = 1
+
+    func makeBody(configuration: Configuration) -> some View {
+        SoftButtonContent(configuration: configuration, hoverScale: hoverScale)
+    }
+}
+
+private struct SoftButtonContent: View {
+    let configuration: ButtonStyleConfiguration
+    let hoverScale: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var hovered = false
+
+    var body: some View {
+        configuration.label
+            .opacity(isEnabled ? (configuration.isPressed ? 0.65 : hovered ? 1 : 0.88) : 0.45)
+            .scaleEffect(reduceMotion || !isEnabled ? 1 : configuration.isPressed ? 0.98 : hovered ? hoverScale : 1)
+            .animation(.easeOut(duration: reduceMotion ? 0.08 : 0.16), value: hovered)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+            .onHover { hovered = $0 }
     }
 }
 

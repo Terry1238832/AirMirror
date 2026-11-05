@@ -153,6 +153,16 @@ private struct VideoBridgeRegression {
             bridge.enqueueExternalSample(portrait, session: session)
         }) { bridge.hasVideo && bridge.videoSize == CGSize(width: 480, height: 640) }
 
+        // Continuous capture must not invalidate the entire SwiftUI interface on every frame.
+        var redundantStreamingUpdates = 0
+        let streamingSubscription = bridge.$hasVideo.dropFirst().sink { _ in redundantStreamingUpdates += 1 }
+        for _ in 0..<12 {
+            bridge.enqueueExternalSample(portrait, session: session)
+            drain(for: 0.01)
+        }
+        try require(redundantStreamingUpdates == 0, "Steady USB frames republished the streaming state")
+        streamingSubscription.cancel()
+
         // Hold the main queue while flooding capture frames. Delivery must coalesce to the final frame.
         session = bridge.beginExternalSession()
         var publishedSizes: [CGSize] = []

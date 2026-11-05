@@ -6,11 +6,15 @@
 
 ## 安装
 
-1. 到 [Releases](https://github.com/Terry1238832/AirMirror/releases/tag/v1.1.0) 下载 `AirMirror-1.1.0.dmg`，或从官网下载
+1. 到 [Releases](https://github.com/Terry1238832/AirMirror/releases/tag/v1.1.1) 下载 `AirMirror-1.1.1.dmg`，或从官网下载
 2. 把「镜投」拖进「应用程序」
 3. 第一次打开如果被系统拦住：按住 Control 点图标，选择「打开」
 
 需要 Apple 芯片的 Mac，macOS 14 或更新。无线投屏时，手机和 Mac 要在同一个可以互相发现的局域网里。
+
+## 1.1.1 更新
+
+设置面板淡入并轻弹展开，连接方式切换和高级选项折叠更加连贯。开始、结束投屏及画面旋转时，窗口会平滑调整尺寸；手动缩放与比例滑块仍保持即时响应。动效会跟随 macOS 的「减少动态效果」设置自动收敛。
 
 ## 无线投屏
 
@@ -40,4 +44,4 @@ macOS 把 USB 设备屏幕归为相机采集源，因此需要相机权限。有
 ./release.sh
 ```
 
-会生成 `dist/镜投-1.1.0.dmg`（发布到 GitHub 时文件名为 `AirMirror-1.1.0.dmg`）。无线画面接收使用 [UxPlay](https://github.com/FDH2/UxPlay) `59f65c8`，改动在 `scripts/patches/`。UxPlay 以 GPL-3.0 发布。
+会生成 `dist/镜投-1.1.1.dmg`（发布到 GitHub 时文件名为 `AirMirror-1.1.1.dmg`）。无线画面接收使用 [UxPlay](https://github.com/FDH2/UxPlay) `59f65c8`，改动在 `scripts/patches/`。UxPlay 以 GPL-3.0 发布。
