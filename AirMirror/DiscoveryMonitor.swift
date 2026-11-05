@@ -17,15 +17,16 @@ final class DiscoveryMonitor: ObservableObject {
         let descriptor = NWBrowser.Descriptor.bonjour(type: "_airplay._tcp", domain: "local.")
         let browser = NWBrowser(for: descriptor, using: .tcp)
         browser.stateUpdateHandler = { _ in }
-        browser.browseResultsChangedHandler = { results, _ in
+        browser.browseResultsChangedHandler = { [weak self, weak browser] results, _ in
             let visible = results.contains { result in
                 if case let .service(serviceName, type, _, _) = result.endpoint {
                     return type.contains("airplay") && serviceName == expected
                 }
                 return false
             }
-            Task { @MainActor [weak self] in
-                self?.isVisibleOnLan = visible
+            Task { @MainActor [weak self, weak browser] in
+                guard let self, let browser, self.browser === browser else { return }
+                self.isVisibleOnLan = visible
             }
         }
         browser.start(queue: .main)

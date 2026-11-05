@@ -48,6 +48,8 @@ final class VideoBridge: ObservableObject {
     private var clientFD: Int32 = -1
     private var stopping = false
     private var generation = 0
+    private var pendingExternalSample: (CMSampleBuffer, Int)?
+    private var externalDeliveryScheduled = false
     private var formatDesc: CMFormatDescription?
     /// iOS resends identical SPS/PPS whenever the stream resumes; only different bytes are a real format change.
     private var formatParameterSets = Data()
@@ -122,24 +124,81 @@ final class VideoBridge: ObservableObject {
     func stopListening() {
         stateLock.lock()
         stopping = true
+        generation += 1
+        let gen = generation
+        pendingExternalSample = nil
         closeSocketsLocked()
         unlink(socketPath)
         stateLock.unlock()
-        endSession()
+        endSession(generation: gen)
+    }
+
+    /// Invalidates every queued AirPlay frame before accepting a native USB stream.
+    func beginExternalSession() -> Int {
+        stopListening()
+        return currentGeneration
+    }
+
+    /// Keeps at most one native frame pending on the main queue, avoiding latency buildup.
+    func enqueueExternalSample(_ sample: CMSampleBuffer, session: Int) {
+        stateLock.lock()
+        guard generation == session else { stateLock.unlock(); return }
+        pendingExternalSample = (sample, session)
+        let schedule = !externalDeliveryScheduled
+        externalDeliveryScheduled = true
+        stateLock.unlock()
+        guard schedule else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.stateLock.lock()
+            let pending = self.pendingExternalSample
+            self.pendingExternalSample = nil
+            self.externalDeliveryScheduled = false
+            self.stateLock.unlock()
+            guard let (sample, gen) = pending, self.isCurrentGeneration(gen),
+                  let format = CMSampleBufferGetFormatDescription(sample) else { return }
+            let size = CMVideoFormatDescriptionGetPresentationDimensions(format, usePixelAspectRatio: true, useCleanAperture: true)
+            self.noteDecodedSize(size)
+            if let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: true) as? [NSMutableDictionary],
+               let first = attachments.first {
+                first[kCMSampleAttachmentKey_DisplayImmediately] = true
+            }
+            if self.displayLayer.sampleBufferRenderer.isReadyForMoreMediaData || self.displayLayer.sampleBufferRenderer.status == .failed {
+                self.enqueueOnLayer(sample, keyframe: true)
+                self.hasVideo = true
+            }
+        }
     }
 
     func endSession() {
+        endSession(generation: currentGeneration)
+    }
+
+    private func endSession(generation gen: Int) {
         decodeQueue.async { [weak self] in
+            guard self?.isCurrentGeneration(gen) == true else { return }
             self?.resetDecoder()
         }
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+        let clear = { [weak self] in
+            guard let self, self.isCurrentGeneration(gen) else { return }
             self.hasVideo = false
             self.reportedSize = .zero
             self.decodedSize = .zero
             self.videoSize = .zero
+            self.waitingForKeyframe = false
+            self.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
         }
-        flushLayer()
+        if Thread.isMainThread { clear() } else { DispatchQueue.main.async(execute: clear) }
+    }
+
+    private var currentGeneration: Int {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return generation
+    }
+
+    private func isCurrentGeneration(_ gen: Int) -> Bool {
+        currentGeneration == gen
     }
 
     func setFillMode(letterbox: Bool) {
@@ -172,7 +231,7 @@ final class VideoBridge: ObservableObject {
         }
     }
 
-    private func publishDecodedSize(_ format: CMFormatDescription) {
+    private func publishDecodedSize(_ format: CMFormatDescription, generation gen: Int) {
         let presentation = CMVideoFormatDescriptionGetPresentationDimensions(
             format,
             usePixelAspectRatio: true,
@@ -183,6 +242,7 @@ final class VideoBridge: ObservableObject {
         guard abs(lastDecodedSize.width - next.width) > 0.5 || abs(lastDecodedSize.height - next.height) > 0.5 else { return }
         lastDecodedSize = next
         DispatchQueue.main.async { [weak self] in
+            guard self?.isCurrentGeneration(gen) == true else { return }
             self?.noteDecodedSize(next)
         }
     }
@@ -210,19 +270,25 @@ final class VideoBridge: ObservableObject {
                 continue
             }
             stateLock.lock()
+            guard !stopping, self.generation == generation else {
+                stateLock.unlock()
+                Darwin.close(client)
+                return
+            }
             clientFD = client
             stateLock.unlock()
-            readLoop(client)
-            Darwin.close(client)
+            readLoop(client, generation: generation)
             stateLock.lock()
             if clientFD == client { clientFD = -1 }
+            Darwin.close(client)
             stateLock.unlock()
-            endSession()
+            endSession(generation: generation)
         }
     }
 
-    private func readLoop(_ fd: Int32) {
+    private func readLoop(_ fd: Int32, generation gen: Int) {
         while true {
+            guard isCurrentGeneration(gen) else { return }
             guard let headerData = readExact(fd, count: Self.headerSize) else { return }
             let magic = Self.u32(headerData, 0)
             guard magic == Self.magic else { return }
@@ -232,31 +298,36 @@ final class VideoBridge: ObservableObject {
             let height = Self.u32(headerData, 16)
             let size = Self.u32(headerData, 20)
 
-            var payload = Data()
+            let payload: Data
             if size > 0 {
                 guard let body = readExact(fd, count: Int(size)) else { return }
                 payload = body
+            } else {
+                payload = Data()
             }
+            guard isCurrentGeneration(gen) else { return }
 
             switch MessageType(rawValue: type) {
             case .size:
                 let next = CGSize(width: CGFloat(width), height: CGFloat(height))
                 DispatchQueue.main.async { [weak self] in
+                    guard self?.isCurrentGeneration(gen) == true else { return }
                     self?.noteReportedSize(next)
                 }
             case .packet:
                 decodeQueue.async { [weak self] in
-                    self?.handlePacket(payload, codec: codec)
+                    guard self?.isCurrentGeneration(gen) == true else { return }
+                    self?.handlePacket(payload, codec: codec, generation: gen)
                 }
             case .end:
-                endSession()
+                endSession(generation: gen)
             case .none:
                 return
             }
         }
     }
 
-    private func handlePacket(_ data: Data, codec: UInt32) {
+    private func handlePacket(_ data: Data, codec: UInt32, generation gen: Int) {
         self.codec = codec
         let nalus = Self.splitNALUs(data)
         guard !nalus.isEmpty else { return }
@@ -275,7 +346,7 @@ final class VideoBridge: ObservableObject {
                 if key != formatParameterSets, let next = Self.makeHEVCFormat(vps: vps, sps: sps, pps: pps) {
                     formatDesc = next
                     formatParameterSets = key
-                    publishDecodedSize(next)
+                    publishDecodedSize(next, generation: gen)
                 }
             }
         } else {
@@ -291,7 +362,7 @@ final class VideoBridge: ObservableObject {
                 if key != formatParameterSets, let next = Self.makeH264Format(sps: sps, pps: pps) {
                     formatDesc = next
                     formatParameterSets = key
-                    publishDecodedSize(next)
+                    publishDecodedSize(next, generation: gen)
                 }
             }
         }
@@ -307,12 +378,12 @@ final class VideoBridge: ObservableObject {
         let queued = pending
         pending.removeAll(keepingCapacity: true)
         for item in queued {
-            enqueue(item)
+            enqueue(item, generation: gen)
         }
-        enqueue(data)
+        enqueue(data, generation: gen)
     }
 
-    private func enqueue(_ annexB: Data) {
+    private func enqueue(_ annexB: Data, generation gen: Int) {
         guard let formatDesc else { return }
         let nalus = Self.splitNALUs(annexB).filter { !$0.isEmpty }
         guard let avcc = Self.avcc(from: nalus) else { return }
@@ -369,7 +440,7 @@ final class VideoBridge: ObservableObject {
         }
 
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self, self.isCurrentGeneration(gen) else { return }
             self.enqueueOnLayer(sample, keyframe: keyframe)
             if !self.hasVideo {
                 self.hasVideo = true
@@ -416,18 +487,6 @@ final class VideoBridge: ObservableObject {
         }
     }
 
-    private func flushLayer() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.waitingForKeyframe = false
-            if #available(macOS 14.0, *) {
-                self.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true)
-            } else {
-                self.displayLayer.flushAndRemoveImage()
-            }
-        }
-    }
-
     private func resetDecoder() {
         formatDesc = nil
         formatParameterSets = Data()
@@ -440,10 +499,12 @@ final class VideoBridge: ObservableObject {
 
     private func closeSocketsLocked() {
         if clientFD >= 0 {
-            Darwin.close(clientFD)
+            // acceptLoop owns close; shutdown wakes its read without risking a double close.
+            Darwin.shutdown(clientFD, SHUT_RDWR)
             clientFD = -1
         }
         if listenFD >= 0 {
+            Darwin.shutdown(listenFD, SHUT_RDWR)
             Darwin.close(listenFD)
             listenFD = -1
         }

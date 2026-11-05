@@ -23,12 +23,14 @@ final class ReceiverEngine {
     private var errorPipe: Pipe?
     private var stdoutBuffer = ""
     private var stderrBuffer = ""
+    private var runID = UUID()
     var onEvent: ((ReceiverEvent) -> Void)?
 
     var isRunning: Bool { process?.isRunning == true }
 
     func start(name: String, requirePin: Bool, deviceMAC: String, quality: StreamQuality, fps: StreamFPS, videoSocket: String) throws {
         stop()
+        let runID = self.runID
 
         guard let executable = EngineLocator.find() else {
             throw EngineError.missingBinary
@@ -105,12 +107,13 @@ final class ReceiverEngine {
         process.standardError = errorPipe
         process.standardInput = FileHandle.nullDevice
 
-        attach(pipe: outputPipe, isError: false)
-        attach(pipe: errorPipe, isError: true)
+        attach(pipe: outputPipe, isError: false, runID: runID)
+        attach(pipe: errorPipe, isError: true, runID: runID)
 
         process.terminationHandler = { [weak self] finished in
             let code = finished.terminationStatus
             DispatchQueue.main.async {
+                guard self?.runID == runID else { return }
                 self?.onEvent?(.init(kind: .exited(code)))
             }
         }
@@ -124,6 +127,7 @@ final class ReceiverEngine {
     }
 
     func stop() {
+        runID = UUID()
         guard let process else { return }
         process.terminationHandler = nil
         if process.isRunning {
@@ -139,11 +143,12 @@ final class ReceiverEngine {
         stderrBuffer = ""
     }
 
-    private func attach(pipe: Pipe, isError: Bool) {
+    private func attach(pipe: Pipe, isError: Bool, runID: UUID) {
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
             DispatchQueue.main.async {
+                guard self?.runID == runID else { return }
                 self?.consume(chunk, isError: isError)
             }
         }

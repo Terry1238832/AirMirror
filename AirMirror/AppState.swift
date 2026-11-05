@@ -15,14 +15,44 @@ final class AppState: ObservableObject {
     private static let fpsKey = "streamFPS"
     private static let customAspectKey = "allowsCustomAspect"
     private static let aspectScaleKey = "aspectScale"
+    private static let connectionModeKey = "connectionMode"
+    private static let wiredDeviceKey = "wiredDeviceID"
+    private static let wiredAudioKey = "wiredAudioEnabled"
 
     private let logger = Logger(subsystem: "com.liangyu.airmirror", category: "app")
     private let engine = ReceiverEngine()
+    private let wiredEngine = WiredCaptureEngine()
     let discovery = DiscoveryMonitor()
     let video = VideoBridge()
 
+    @Published var connectionMode: ConnectionMode {
+        didSet {
+            guard connectionMode != oldValue else { return }
+            UserDefaults.standard.set(connectionMode.rawValue, forKey: Self.connectionModeKey)
+            if started { restart() }
+        }
+    }
+    @Published private(set) var wiredDevices: [WiredDevice] = []
+    @Published var selectedWiredDeviceID: String? {
+        didSet {
+            UserDefaults.standard.set(selectedWiredDeviceID, forKey: Self.wiredDeviceKey)
+            guard selectedWiredDeviceID != oldValue, connectionMode == .usb, !stoppingIntentionally else { return }
+            wiredEngine.selectDevice(selectedWiredDeviceID)
+        }
+    }
+    @Published var wiredAudioEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(wiredAudioEnabled, forKey: Self.wiredAudioKey)
+            wiredAudioMessage = nil
+            if connectionMode == .usb, !stoppingIntentionally { wiredEngine.setAudioEnabled(wiredAudioEnabled) }
+        }
+    }
+    @Published private(set) var wiredPermissionDenied = false
+    @Published private(set) var wiredAudioMessage: String?
+
     @Published var receiverName: String {
         didSet {
+            guard receiverName != oldValue else { return }
             UserDefaults.standard.set(receiverName, forKey: Self.nameKey)
             scheduleRestart()
         }
@@ -30,7 +60,7 @@ final class AppState: ObservableObject {
     @Published var requirePin: Bool {
         didSet {
             UserDefaults.standard.set(requirePin, forKey: Self.pinKey)
-            if isAdvertising { restart() }
+            if connectionMode == .wireless, isAdvertising { restart() }
         }
     }
     @Published var quality: StreamQuality {
@@ -84,6 +114,9 @@ final class AppState: ObservableObject {
 
     private init() {
         let defaults = UserDefaults.standard
+        connectionMode = ConnectionMode(rawValue: defaults.string(forKey: Self.connectionModeKey) ?? "") ?? .wireless
+        selectedWiredDeviceID = defaults.string(forKey: Self.wiredDeviceKey)
+        wiredAudioEnabled = defaults.bool(forKey: Self.wiredAudioKey)
         let storedName = defaults.string(forKey: Self.nameKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
         receiverName = (storedName?.isEmpty == false) ? storedName! : "镜投"
         requirePin = defaults.bool(forKey: Self.pinKey)
@@ -114,10 +147,13 @@ final class AppState: ObservableObject {
                 self?.handle(event)
             }
         }
+        wiredEngine.onEvent = { [weak self] event in
+            self?.handleWired(event)
+        }
         discovery.$isVisibleOnLan
             .receive(on: RunLoop.main)
             .sink { [weak self] visible in
-                guard let self, visible, self.status == .starting else { return }
+                guard let self, self.connectionMode == .wireless, visible, self.status == .starting else { return }
                 self.status = .advertising
             }
             .store(in: &cancellables)
@@ -125,17 +161,22 @@ final class AppState: ObservableObject {
 
     var statusText: String {
         switch status {
-        case .idle: return "尚未开始广播"
-        case .starting: return "正在启动接收端…"
+        case .idle: return connectionMode == .usb ? "有线投屏已停止" : "尚未开始广播"
+        case .starting: return connectionMode == .usb ? "正在连接 USB 设备…" : "正在启动接收端…"
+        case .waitingForDevice: return "等待 USB 连接的 iPhone / iPad"
         case .advertising: return discovery.isVisibleOnLan ? "已可被 iPhone / iPad 搜索到" : "正在局域网广播"
-        case .connected: return "正在接收投屏"
+        case .connected: return connectionMode == .usb ? "正在通过 USB 接收投屏" : "正在接收投屏"
         case .missingEngine: return "还没有安装投屏引擎"
         case .failed: return lastError ?? "启动失败"
         }
     }
 
     var isAdvertising: Bool {
-        status == .advertising || status == .connected
+        connectionMode == .wireless && (status == .advertising || status == .connected)
+    }
+
+    var isReceiverActive: Bool {
+        status == .starting || status == .waitingForDevice || status == .advertising || status == .connected
     }
 
     func start() {
@@ -149,6 +190,10 @@ final class AppState: ObservableObject {
     }
 
     func startReceiver() {
+        if connectionMode == .usb {
+            startWiredReceiver()
+            return
+        }
         engineFound = EngineLocator.find() != nil
         guard engineFound else {
             status = .missingEngine
@@ -187,6 +232,8 @@ final class AppState: ObservableObject {
         restartWork?.cancel()
         discovery.stop()
         engine.stop()
+        wiredEngine.stop()
+        wiredEngine.onVideoSample = nil
         video.stopListening()
         connectedClient = nil
         pinCode = nil
@@ -208,13 +255,74 @@ final class AppState: ObservableObject {
         localAddresses = NetworkInfo.ipv4Addresses()
     }
 
+    func refreshWiredDevices() {
+        guard connectionMode == .usb else { return }
+        if status == .idle || status == .failed {
+            restart()
+        } else {
+            wiredEngine.refreshDevices()
+        }
+    }
+
+    private func startWiredReceiver() {
+        stoppingIntentionally = false
+        lastError = nil
+        wiredPermissionDenied = false
+        wiredAudioMessage = nil
+        pinCode = nil
+        connectedClient = nil
+        status = .starting
+        prepareWiredVideoSession()
+        wiredEngine.start(preferredDeviceID: selectedWiredDeviceID, audioEnabled: wiredAudioEnabled)
+    }
+
+    private func prepareWiredVideoSession() {
+        let session = video.beginExternalSession()
+        wiredEngine.onVideoSample = { [weak video] sample in
+            video?.enqueueExternalSample(sample, session: session)
+        }
+    }
+
+    private func handleWired(_ event: WiredCaptureEvent) {
+        guard connectionMode == .usb, !stoppingIntentionally else { return }
+        switch event {
+        case .devices(let devices):
+            wiredDevices = devices
+        case .waiting, .disconnected:
+            connectedClient = nil
+            prepareWiredVideoSession()
+            status = .waitingForDevice
+        case .connecting(let name):
+            connectedClient = name
+            lastError = nil
+            wiredPermissionDenied = false
+            prepareWiredVideoSession()
+            status = .starting
+        case .connected(let name):
+            connectedClient = name
+            status = .connected
+            lastError = nil
+        case .permissionDenied:
+            wiredPermissionDenied = true
+            status = .failed
+            lastError = "请在系统设置的「隐私与安全性 → 相机」中允许镜投读取 USB 设备画面。"
+        case .failed(let message):
+            prepareWiredVideoSession()
+            connectedClient = nil
+            status = .failed
+            lastError = message
+        case .audioUnavailable(let message):
+            wiredAudioMessage = message
+        }
+    }
+
     private var sanitizedName: String {
         let trimmed = receiverName.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "镜投" : trimmed
     }
 
     private func scheduleRestart() {
-        guard started, status != .missingEngine else { return }
+        guard started, connectionMode == .wireless, isReceiverActive else { return }
         restartWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             self?.restart()
@@ -232,6 +340,7 @@ final class AppState: ObservableObject {
     }
 
     private func handle(_ event: ReceiverEvent) {
+        guard connectionMode == .wireless, !stoppingIntentionally else { return }
         switch event.kind {
         case .started:
             consecutiveExits = 0
@@ -304,6 +413,7 @@ final class AppState: ObservableObject {
 enum ReceiverStatus: Equatable {
     case idle
     case starting
+    case waitingForDevice
     case advertising
     case connected
     case missingEngine

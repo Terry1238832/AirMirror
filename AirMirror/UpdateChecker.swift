@@ -7,7 +7,7 @@ enum AppVersion {
         if let version, !version.isEmpty {
             return version
         }
-        return "1.0.2"
+        return "1.1.0"
     }
 }
 

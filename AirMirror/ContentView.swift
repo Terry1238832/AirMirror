@@ -127,7 +127,7 @@ struct ContentView: View {
 
     private var waiting: some View {
         VStack(spacing: 18) {
-            Image(systemName: "airplayvideo")
+            Image(systemName: appState.connectionMode.symbol)
                 .font(.system(size: 38, weight: .semibold))
                 .foregroundStyle(.white)
                 .symbolRenderingMode(.hierarchical)
@@ -136,11 +136,17 @@ struct ContentView: View {
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
 
-            Text(statusLine)
-                .font(.title3)
-                .foregroundStyle(.white.opacity(0.72))
+            connectionPicker
+                .frame(maxWidth: 320)
 
-            if let pin = appState.pinCode {
+            Text(statusLine)
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.72))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 520)
+
+            if appState.connectionMode == .wireless, let pin = appState.pinCode {
                 Text("配对码 \(pin)")
                     .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
                     .foregroundStyle(.white)
@@ -153,26 +159,47 @@ struct ContentView: View {
     }
 
     private var statusLine: String {
-        if discovery.isVisibleOnLan || appState.status == .advertising || appState.status == .starting {
-            return "已在局域网广播，手机现在就能搜到"
+        if appState.connectionMode == .wireless, discovery.isVisibleOnLan,
+           appState.status == .advertising {
+            return "已可被局域网内的 iPhone / iPad 搜索到"
         }
         return appState.statusText
     }
 
+    private var connectionPicker: some View {
+        Picker("连接方式", selection: $appState.connectionMode) {
+            ForEach(ConnectionMode.allCases) { mode in
+                Label(mode.title, systemImage: mode.symbol).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+
     private var instructionCard: some View {
         VStack(alignment: .leading, spacing: 18) {
-            instructionRow(number: "1", title: "打开控制中心") {
-                Text("在屏幕右上角往下拉（有 Home 键的设备从底部上滑）")
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.62))
-            }
-            instructionRow(number: "2", title: "点「屏幕镜像」") {
-                ScreenMirroringButton()
-            }
-            instructionRow(number: "3", title: "选择「\(displayName)」") {
-                Text("名字可以在下面的设置里改")
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.62))
+            if appState.connectionMode == .wireless {
+                instructionRow(number: "1", title: "打开控制中心") {
+                    instructionText("在屏幕右上角往下拉（有 Home 键的设备从底部上滑）")
+                }
+                instructionRow(number: "2", title: "点「屏幕镜像」") {
+                    ScreenMirroringButton()
+                }
+                instructionRow(number: "3", title: "选择「\(displayName)」") {
+                    instructionText("设备需要与 Mac 连接到可以互相访问的局域网。显示名可以在设置里改。")
+                }
+            } else {
+                instructionRow(number: "1", title: "用数据线连接 iPad 和 Mac") {
+                    instructionText("使用支持数据传输的 USB-C 或 Lightning 线，无需连接同一个 Wi-Fi。")
+                }
+                instructionRow(number: "2", title: "解锁 iPad，点「信任」") {
+                    instructionText("在 iPad 上确认「信任此电脑」，并按提示输入设备密码。")
+                }
+                instructionRow(number: "3", title: "允许访问后，画面自动出现") {
+                    instructionText("macOS 将有线画面归为相机输入，请允许镜投访问相机。无需在 iPad 上打开「屏幕镜像」。")
+                }
+                Divider().overlay(Color.white.opacity(0.08))
+                wiredDeviceControls
             }
         }
         .padding(22)
@@ -181,6 +208,58 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color.white.opacity(0.07))
         )
+    }
+
+    private func instructionText(_ text: String) -> some View {
+        Text(text)
+            .font(.callout)
+            .foregroundStyle(.white.opacity(0.62))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var wiredDeviceControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !appState.wiredDevices.isEmpty {
+                Picker("设备", selection: $appState.selectedWiredDeviceID) {
+                    Text("自动选择").tag(String?.none)
+                    if let previous = appState.selectedWiredDeviceID,
+                       !appState.wiredDevices.contains(where: { $0.id == previous }) {
+                        Text("上次选择的设备（未连接）").tag(Optional(previous))
+                    }
+                    ForEach(appState.wiredDevices) { device in
+                        Text(device.name).tag(Optional(device.id))
+                    }
+                }
+                .foregroundStyle(.white.opacity(0.85))
+            } else {
+                Label("尚未检测到可用设备", systemImage: "ipad")
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.62))
+            }
+
+            HStack(spacing: 12) {
+                if appState.status == .idle {
+                    Button("开始有线投屏") { appState.startReceiver() }
+                } else {
+                    Button("重新检测设备") { appState.refreshWiredDevices() }
+                }
+                if appState.wiredPermissionDenied {
+                    Button("打开相机权限设置") { openCameraPrivacySettings() }
+                }
+            }
+
+            if appState.wiredPermissionDenied {
+                Text("在「隐私与安全性 → 相机」中允许镜投，然后重新检测设备。系统可能要求重新打开应用。")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.55))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func openCameraPrivacySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func instructionRow<Content: View>(number: String, title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -216,6 +295,72 @@ struct ContentView: View {
                 .foregroundStyle(.white.opacity(0.7))
             }
 
+            connectionPicker
+
+            if appState.connectionMode == .wireless {
+                wirelessSettings
+            } else {
+                wiredDeviceControls
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("播放设备声音", isOn: $appState.wiredAudioEnabled)
+                        .foregroundStyle(.white)
+                    Text("开启时需要麦克风权限，用于接收数据线传来的设备声音。")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.45))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let message = appState.wiredAudioMessage {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.orange.opacity(0.85))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            HStack {
+                if appState.isReceiverActive {
+                    Button(appState.connectionMode == .usb ? "停止有线投屏" : "停止广播") {
+                        appState.stopReceiver()
+                    }
+                } else {
+                    Button(appState.connectionMode == .usb ? "开始有线投屏" : "开始广播") {
+                        commitName()
+                        appState.startReceiver()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+                Button(appState.connectionMode == .usb ? "重新连接" : "重新广播") {
+                    commitName()
+                    appState.restart()
+                }
+                .disabled(appState.connectionMode == .wireless && appState.status == .missingEngine)
+            }
+
+            advancedSettings
+
+            versionRow
+
+            if let error = appState.lastError, appState.status == .failed || appState.status == .missingEngine {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(white: 0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.45), radius: 24, y: 8)
+    }
+
+    private var wirelessSettings: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("显示名")
                     .foregroundStyle(.white.opacity(0.7))
@@ -254,45 +399,7 @@ struct ContentView: View {
 
             Toggle("连接时需要配对码", isOn: $appState.requirePin)
                 .foregroundStyle(.white)
-
-            HStack {
-                if appState.isAdvertising || appState.status == .starting {
-                    Button("停止广播") { appState.stopReceiver() }
-                } else {
-                    Button("开始广播") {
-                        commitName()
-                        appState.startReceiver()
-                    }
-                    .keyboardShortcut(.defaultAction)
-                }
-                Button("重新广播") {
-                    commitName()
-                    appState.restart()
-                }
-                .disabled(appState.status == .missingEngine)
-            }
-
-            advancedSettings
-
-            versionRow
-
-            if let error = appState.lastError, appState.status == .failed || appState.status == .missingEngine {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .textSelection(.enabled)
-            }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(white: 0.12))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.45), radius: 24, y: 8)
     }
 
     private var advancedSettings: some View {

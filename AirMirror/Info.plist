@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>3</string>
+	<string>4</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -34,6 +34,10 @@
 	<false/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>镜投需要访问局域网，才能被 iPhone、iPad 用系统自带的「屏幕镜像」搜到并连接。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>镜投需要通过 macOS 的相机采集接口，读取 USB 连接的 iPhone 或 iPad 屏幕画面。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>开启「播放设备声音」后，镜投需要音频采集权限来播放 USB 连接的 iPhone 或 iPad 的声音。</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_airplay._tcp</string>

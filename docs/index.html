@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#071411">
-  <meta name="description" content="镜投，让 iPhone 和 iPad 用系统自带的屏幕镜像，投到 Mac 上。打开就能在局域网里被搜到。">
+  <meta name="description" content="镜投，让 iPhone 和 iPad 通过无线屏幕镜像或 USB 数据线投到 Mac。校园网设备无法互通时，插线也能投屏。">
   <meta property="og:title" content="镜投 · 手机画面，投到 Mac。">
-  <meta property="og:description" content="用 iPhone / iPad 自带的屏幕镜像，把画面投到这台 Mac。">
+  <meta property="og:description" content="无线屏幕镜像，或用 USB 数据线直接连接。iPhone 和 iPad 的画面，都能投到 Mac。">
   <meta property="og:type" content="website">
   <title>镜投 — 手机画面，投到 Mac。</title>
   <link rel="icon" type="image/png" href="app-icon.png">
@@ -22,31 +22,42 @@
   </header>
   <main>
     <section class="hero shell">
-      <p class="release-pill"><span>1.0.2</span> 窗口按投屏比例缩放</p>
+      <p class="release-pill"><span>1.1.0</span> 新增 USB 有线投屏</p>
       <h1>手机画面，<br><span>投到 Mac。</span></h1>
-      <p class="hero-description">iPhone 和 iPad 用系统自带的屏幕镜像。<br>打开镜投，同一 Wi-Fi 里就能搜到。</p>
+      <p class="hero-description">iPhone 和 iPad，无线镜像或数据线直连。<br>校园网不互通，插线也能投。</p>
       <div class="hero-actions">
-        <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.0.2/AirMirror-1.0.2.dmg">下载 Mac 版</a>
+        <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.1.0/AirMirror-1.1.0.dmg">下载 Mac 版</a>
         <a class="button button-github" href="https://github.com/Terry1238832/AirMirror">GitHub</a>
       </div>
-      <p class="compatibility">macOS 14+ <span>·</span> Apple 芯片 <span>·</span> 约 25 MB</p>
+      <p class="compatibility">macOS 14+ <span>·</span> Apple 芯片 <span>·</span> 约 26 MB</p>
       <div class="phone-card" aria-hidden="true">
         <div class="phone-top"><i></i><i></i><i></i><strong>镜投</strong></div>
         <p>等待投屏</p>
         <ol>
-          <li>从屏幕右上角下拉，打开控制中心</li>
-          <li>点「屏幕镜像」</li>
-          <li>选择「镜投」</li>
+          <li>在镜投中选择「USB 有线」</li>
+          <li>用数据线连接 iPad 和 Mac</li>
+          <li>解锁并信任电脑，画面自动出现</li>
         </ol>
       </div>
     </section>
     <section class="section shell" id="how">
       <p class="eyebrow">HOW IT WORKS</p>
-      <h2>三步，画面就在这个窗口里。</h2>
+      <h2>无线投屏，三步连接。</h2>
       <div class="steps">
-        <article><span>01</span><h3>打开镜投</h3><p>它会在局域网里广播。手机和 Mac 要在同一个 Wi-Fi。</p></article>
+        <article><span>01</span><h3>选择无线投屏</h3><p>打开镜投，选择「无线投屏」。手机和 Mac 连接到可以互相发现的同一局域网。</p></article>
         <article><span>02</span><h3>点屏幕镜像</h3><p>在 iPhone 或 iPad 的控制中心点「屏幕镜像」，选择镜投。</p></article>
         <article><span>03</span><h3>看这一个窗口</h3><p>等待页和投屏画面在同一个窗口。全屏时保持手机原来的比例。</p></article>
+      </div>
+    </section>
+    <section class="section install" id="usb">
+      <div class="shell">
+        <p class="eyebrow">USB MIRRORING</p>
+        <h2>校园网不互通，就插线。</h2>
+        <ol class="steps">
+          <li><span>01</span><h3>选择 USB 有线</h3><p>在镜投中切到「USB 有线」，用支持数据传输的 USB-C 或 Lightning 线连接设备与 Mac。</p></li>
+          <li><span>02</span><h3>解锁并信任电脑</h3><p>解锁 iPhone 或 iPad，确认「信任此电脑」，按提示输入设备密码。</p></li>
+          <li><span>03</span><h3>允许访问，自动投屏</h3><p>允许镜投访问相机后，画面自动出现。无需同一 Wi-Fi，也无需打开「屏幕镜像」。</p></li>
+        </ol>
       </div>
     </section>
     <section class="section install" id="install">
@@ -56,29 +67,32 @@
         <ol class="steps">
           <li><span>01</span><h3>打开磁盘映像</h3><p>把「镜投」拖进「应用程序」。</p></li>
           <li><span>02</span><h3>第一次打开</h3><p>当前版本还没有 Apple 公证。如果系统拦住，按住 Control 点图标，选「打开」。</p></li>
-          <li><span>03</span><h3>开始投屏</h3><p>窗口里写着等待投屏之后，用手机的屏幕镜像连过来。</p></li>
+          <li><span>03</span><h3>选择连接方式</h3><p>通过无线「屏幕镜像」连接，或切到「USB 有线」后插线投屏。</p></li>
         </ol>
       </div>
     </section>
     <section class="section shell faq" id="faq">
       <p class="eyebrow">FAQ</p>
       <h2>下载之前。</h2>
-      <details open><summary>支持哪些设备？</summary><p>接收端是 Apple 芯片的 Mac，系统 macOS 14 或更新。手机和平板是 iPhone、iPad，用系统自带的屏幕镜像，不需要额外 App。</p></details>
-      <details><summary>搜不到镜投？</summary><p>手机和 Mac 要在同一个局域网。公司或酒店的隔离 Wi-Fi 经常会挡住设备互相发现，换一个可以互通的网络再试。</p></details>
+      <details open><summary>支持哪些设备？</summary><p>接收端是 Apple 芯片的 Mac，系统 macOS 14 或更新。iPhone 和 iPad 可以使用无线屏幕镜像，也可以用 USB 数据线连接，无需在设备上额外安装 App。</p></details>
+      <details><summary>学校 Wi-Fi 搜不到镜投？</summary><p>无线投屏需要设备能在局域网中互相发现。学校、公司或酒店的隔离 Wi-Fi 可能会阻止连接，可以切换到「USB 有线」，直接用数据线投屏。</p></details>
+      <details><summary>USB 为什么需要相机权限？</summary><p>macOS 将数据线连接的 iPhone / iPad 屏幕作为采集源，归入相机权限。请在「隐私与安全性 → 相机」中允许镜投。有线模式接收的是设备屏幕。</p></details>
+      <details><summary>插线后没有画面？</summary><p>请确认线缆支持数据传输，解锁 iPhone / iPad 并信任这台 Mac，再点「重新检测设备」。如果其他应用正在采集同一设备，请先关闭它们。</p></details>
+      <details><summary>有线投屏可以播放设备声音吗？</summary><p>可以。在设置中开启「播放设备声音」，并允许麦克风权限，用于接收数据线传来的设备音频。此选项默认关闭；拒绝音频权限不会阻止画面投屏。</p></details>
       <details><summary>画面会不会被拉变形？</summary><p>窗口会锁住设备比例。全屏时四周留黑边，画面本身按原来的宽高显示。</p></details>
       <details><summary>为什么第一次打开要手动允许？</summary><p>安装包没有经过 Apple 公证。这只影响第一次打开，按住 Control 点「打开」即可。</p></details>
     </section>
     <section class="download shell" id="download">
       <img src="app-icon.png" alt="" width="80" height="80">
       <h2>把手机屏幕，放到 Mac 上。</h2>
-      <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.0.2/AirMirror-1.0.2.dmg">下载镜投 1.0.2</a>
+      <a class="button button-primary" href="https://github.com/Terry1238832/AirMirror/releases/download/v1.1.0/AirMirror-1.1.0.dmg">下载镜投 1.1.0</a>
       <p class="meta">macOS 14+ · Apple 芯片</p>
       <p class="caveat">未经 Apple 公证。首次打开请按住 Control 再点「打开」。<a href="SHA256SUMS.txt">SHA-256</a></p>
     </section>
   </main>
   <footer class="shell">
-    <div><strong>镜投</strong><p>一个小工具，接收 iPhone 和 iPad 的屏幕镜像。</p></div>
-    <p class="note">© 2026 镜投 · 画面接收基于 <a href="https://github.com/FDH2/UxPlay">UxPlay</a></p>
+    <div><strong>镜投</strong><p>一个小工具，无线或有线接收 iPhone 和 iPad 的画面。</p></div>
+    <p class="note">© 2026 镜投 · 无线接收基于 <a href="https://github.com/FDH2/UxPlay">UxPlay</a><br>有线接收使用 macOS 系统接口</p>
   </footer>
 </body>
 </html>
