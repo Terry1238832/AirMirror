@@ -24,4 +24,3 @@ private struct SoftButtonContent: View {
             .onHover { hovered = $0 }
     }
 }
-
