@@ -266,7 +266,7 @@ struct ContentView: View {
                     .padding(.bottom, 20)
                 }
             }
-            .frame(width: 360, height: appState.connectionMode == .usb ? 460 : 400)
+            .frame(width: 360, height: 460)
             .preferredColorScheme(.dark)
         }
     }
@@ -301,10 +301,10 @@ struct ContentView: View {
     private var wirelessInstructions: some View {
         VStack(alignment: .leading, spacing: 18) {
             instructionRow(number: "1", title: "打开控制中心") {
-                instructionText("在屏幕右上角往下拉（有 Home 键的设备从底部上滑）")
+                instructionText("iPhone X 及更新机型、iPadOS：右上角下拉。有 Home 键的 iPhone 或更早的 iPad：底部上滑。")
             }
-            instructionRow(number: "2", title: "点「屏幕镜像」") {
-                ScreenMirroringButton()
+            instructionRow(number: "2", title: "按系统版本选择图标") {
+                ScreenMirroringButtons()
             }
             instructionRow(number: "3", title: "选择「\(displayName)」") {
                 instructionText("设备需要与 Mac 连接到可以互相访问的局域网。显示名可以在设置里改。")
@@ -360,33 +360,46 @@ struct ContentView: View {
 
 }
 
-private struct ScreenMirroringButton: View {
+private struct ScreenMirroringButtons: View {
     var body: some View {
-        HStack(spacing: 14) {
-            VStack(spacing: 8) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.18))
-                        .frame(width: 64, height: 64)
-                    Image(systemName: "airplayvideo")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                Text("屏幕镜像")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 16) {
+                iconExample(
+                    symbol: "rectangle.on.rectangle",
+                    title: "屏幕镜像",
+                    versions: "iOS 11 及以后\n所有 iPadOS 版本"
+                )
+                iconExample(
+                    symbol: "airplayvideo",
+                    title: "AirPlay / 镜像",
+                    versions: "iOS 10 及更早\n旧版入口"
+                )
             }
-            .padding(.vertical, 4)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("控制中心里就是这个按钮")
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.72))
-                Text("图标可能略有不同，名字一定是「屏幕镜像」")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-            Spacer(minLength: 0)
+            Text("iOS / iPadOS 18、26、27 都选双矩形。新版中的屏幕＋三角是视频播放入口。")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.55))
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private func iconExample(symbol: String, title: String, versions: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(versions)
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
