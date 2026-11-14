@@ -156,6 +156,30 @@ final class WiredCaptureEngine: NSObject {
         self.audioEnabled = audioEnabled
         attemptedDeviceID = nil
         listedDevices = []
+        // Resolve Camera access before discovery so denial is reported even if
+        // the discovery session has no devices to pass to authorizeVideo().
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            break
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] allowed in
+                self?.sessionQueue.async { [weak self] in
+                    guard let self, self.requested, self.isCurrent(token) else { return }
+                    if allowed {
+                        self.beginDiscovery(preferredDeviceID: preferredDeviceID, audioEnabled: self.audioEnabled, token: token)
+                    } else {
+                        self.emit(.permissionDenied, token: token)
+                    }
+                }
+            }
+            return
+        case .denied, .restricted:
+            emit(.permissionDenied, token: token)
+            return
+        @unknown default:
+            emit(.permissionDenied, token: token)
+            return
+        }
         guard enableScreenDevices() else {
             emit(.failed(L10n.tr("无法启用 USB 屏幕接收，请重新打开镜投后再试。")), token: token)
             return

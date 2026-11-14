@@ -28,6 +28,7 @@ struct WindowPasteView: View {
         .appLanguageEnvironment()
         .onChange(of: language.selection) { _, _ in
             WindowPasteWindowController.shared.window?.title = L10n.tr("窗贴 · 镜投辅助功能")
+            appState.clearMessage()
             Task { await appState.refreshWindows() }
         }
         .onAppear {
@@ -150,6 +151,7 @@ struct WindowPasteView: View {
                     }
                 }
                 .labelsHidden()
+                .id(language.selection)
 
                 HStack {
                     Text(L10n.tr("窗口"))

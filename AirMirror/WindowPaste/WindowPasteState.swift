@@ -100,6 +100,7 @@ final class WindowPasteState: ObservableObject {
         #endif
     }
     func copyScreenshot() { capture(copyOnly: true) }
+    func clearMessage() { lastMessage = nil }
 
     private func capture(copyOnly: Bool) {
         guard copyOnly || isEnabled, !isBusy, !isRecordingHotKey else { return }
