@@ -6,13 +6,7 @@ struct ContentView: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject private var discovery: DiscoveryMonitor
     @ObservedObject private var video: VideoBridge
-    @State private var nameDraft: String = ""
-    @State private var showSettings = false
-    @State private var showAdvanced = false
     @State private var showHelp = false
-    #if !APP_STORE
-    @StateObject private var updates = UpdateChecker()
-    #endif
 
     init() {
         _discovery = ObservedObject(wrappedValue: AppState.shared.discovery)
@@ -37,17 +31,6 @@ struct ContentView: View {
                 }
             }
             .animation(fadeAnimation, value: video.hasVideo)
-            .allowsHitTesting(!showSettings)
-            .accessibilityHidden(showSettings)
-
-            if showSettings {
-                settingsBackdrop
-                    .transition(.opacity)
-                    .zIndex(1)
-                settingsPanel
-                    .transition(panelTransition)
-                    .zIndex(2)
-            }
         }
         .preferredColorScheme(.dark)
         .background(
@@ -61,25 +44,15 @@ struct ContentView: View {
                 bridge: video
             )
         )
-        .onAppear {
-            nameDraft = appState.receiverName
-        }
-        .onChange(of: appState.receiverName) { _, newValue in
-            if nameDraft != newValue {
-                nameDraft = newValue
-            }
-        }
         .onChange(of: video.hasVideo) { _, streaming in
             if streaming {
                 withAnimation(panelAnimation) {
-                    showSettings = false
                     showHelp = false
                 }
             }
         }
         .onExitCommand {
             if showHelp { showHelp = false }
-            else if showSettings { dismissSettings() }
         }
     }
 
@@ -87,21 +60,13 @@ struct ContentView: View {
     private var panelAnimation: Animation {
         reduceMotion ? .easeOut(duration: 0.1) : .spring(response: 0.36, dampingFraction: 0.9)
     }
-    private var panelTransition: AnyTransition {
-        reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 12)).combined(with: .scale(scale: 0.985, anchor: .top))
-    }
     private var detailTransition: AnyTransition {
         reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 6))
     }
 
     private func presentSettings() {
         showHelp = false
-        withAnimation(panelAnimation) { showSettings = true }
-    }
-
-    private func dismissSettings() {
-        commitName()
-        withAnimation(panelAnimation) { showSettings = false }
+        MirrorSettingsWindowController.shared.show()
     }
 
     private var waitingLayout: some View {
@@ -178,12 +143,6 @@ struct ContentView: View {
         }
     }
 
-    private var settingsBackdrop: some View {
-        Color.black.opacity(0.55)
-            .ignoresSafeArea()
-            .onTapGesture { dismissSettings() }
-    }
-
     private func auxiliaryMenu(compact: Bool) -> some View {
         Menu {
             Button("窗贴 · 截图与粘贴…") { WindowPasteWindowController.shared.show() }
@@ -202,20 +161,6 @@ struct ContentView: View {
         .fixedSize()
         .accessibilityLabel("辅助功能")
         .help("辅助功能：窗贴截图与粘贴")
-    }
-
-    private var settingsPanel: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            settingsCard
-                .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .onTapGesture { }
-                .frame(maxWidth: 520)
-                .padding(.horizontal, 28)
-                .padding(.top, 48)
-                .padding(.bottom, 28)
-                .frame(maxWidth: .infinity)
-        }
-        .onTapGesture { dismissSettings() }
     }
 
     private var waiting: some View {
@@ -334,16 +279,6 @@ struct ContentView: View {
         return appState.statusText
     }
 
-    private var connectionPicker: some View {
-        Picker("连接方式", selection: $appState.connectionMode) {
-            ForEach(ConnectionMode.allCases) { mode in
-                Label(mode.title, systemImage: mode.symbol).tag(mode)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-    }
-
     private var instructionCard: some View {
         ZStack(alignment: .topLeading) {
             if appState.connectionMode == .wireless {
@@ -389,7 +324,7 @@ struct ContentView: View {
                 instructionText("macOS 将有线画面归为相机输入，请允许镜投访问相机。无需在 iPad 上打开「屏幕镜像」。")
             }
             Divider().overlay(Color.white.opacity(0.08))
-            wiredDeviceControls
+            WiredDeviceControls()
         }
     }
 
@@ -398,51 +333,6 @@ struct ContentView: View {
             .font(.callout)
             .foregroundStyle(.white.opacity(0.62))
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var wiredDeviceControls: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if !appState.wiredDevices.isEmpty {
-                Picker("设备", selection: $appState.selectedWiredDeviceID) {
-                    Text("自动选择").tag(String?.none)
-                    if let previous = appState.selectedWiredDeviceID,
-                       !appState.wiredDevices.contains(where: { $0.id == previous }) {
-                        Text("上次选择的设备（未连接）").tag(Optional(previous))
-                    }
-                    ForEach(appState.wiredDevices) { device in
-                        Text(device.name).tag(Optional(device.id))
-                    }
-                }
-                .foregroundStyle(.white.opacity(0.85))
-            } else {
-                Label("尚未检测到可用设备", systemImage: "ipad")
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.62))
-            }
-
-            HStack(spacing: 12) {
-                if appState.status == .idle {
-                    Button("开始有线投屏") { appState.startReceiver() }
-                } else {
-                    Button("重新检测设备") { appState.refreshWiredDevices() }
-                }
-                if appState.wiredPermissionDenied {
-                    Button("打开相机权限设置") { openCameraPrivacySettings() }
-                }
-            }
-
-            if appState.wiredPermissionDenied {
-                Text("在「隐私与安全性 → 相机」中允许镜投，然后重新检测设备。系统可能要求重新打开应用。")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.55))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func openCameraPrivacySettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") else { return }
-        NSWorkspace.shared.open(url)
     }
 
     private func instructionRow<Content: View>(number: String, title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -463,286 +353,11 @@ struct ContentView: View {
         }
     }
 
-    private var settingsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("设置")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                Spacer()
-                Button("完成") {
-                    dismissSettings()
-                }
-                .buttonStyle(SoftButtonStyle())
-                .foregroundStyle(.white.opacity(0.7))
-            }
-
-            connectionPicker
-
-            connectionSettings
-
-            HStack {
-                if appState.isReceiverActive {
-                    Button(appState.connectionMode == .usb ? "停止有线投屏" : "停止广播") {
-                        appState.stopReceiver()
-                    }
-                } else {
-                    Button(appState.connectionMode == .usb ? "开始有线投屏" : "开始广播") {
-                        commitName()
-                        appState.startReceiver()
-                    }
-                    .keyboardShortcut(.defaultAction)
-                }
-                Button(appState.connectionMode == .usb ? "重新连接" : "重新广播") {
-                    commitName()
-                    appState.restart()
-                }
-                .disabled(appState.connectionMode == .wireless && appState.status == .missingEngine)
-            }
-
-            advancedSettings
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("辅助功能").font(.caption).foregroundStyle(.white.opacity(0.5))
-                Button {
-                    dismissSettings()
-                    WindowPasteWindowController.shared.show()
-                } label: {
-                    Label("窗贴 · 截图与粘贴", systemImage: "camera.viewfinder")
-                }
-                Text("在独立窗口中选择截图目标和快捷键，投屏继续运行。")
-                    .font(.caption).foregroundStyle(.white.opacity(0.45))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            versionRow
-
-            if let error = appState.lastError, appState.status == .failed || appState.status == .missingEngine {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .textSelection(.enabled)
-            }
-            RepositoryFooter()
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(white: 0.12))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.45), radius: 24, y: 8)
-        .animation(panelAnimation, value: appState.connectionMode)
-    }
-
-    private var connectionSettings: some View {
-        ZStack(alignment: .topLeading) {
-            if appState.connectionMode == .wireless {
-                wirelessSettings
-                    .transition(detailTransition)
-            } else {
-                VStack(alignment: .leading, spacing: 16) {
-                    wiredDeviceControls
-                    VStack(alignment: .leading, spacing: 6) {
-                        Toggle("播放设备声音", isOn: $appState.wiredAudioEnabled)
-                            .foregroundStyle(.white)
-                        Text("开启时需要麦克风权限，用于接收数据线传来的设备声音。")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.45))
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let message = appState.wiredAudioMessage {
-                            Text(message)
-                                .font(.caption)
-                                .foregroundStyle(.orange.opacity(0.85))
-                                .fixedSize(horizontal: false, vertical: true)
-                                .transition(.opacity)
-                        }
-                    }
-                }
-                .transition(detailTransition)
-            }
-        }
-    }
-
-    private var wirelessSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("显示名")
-                    .foregroundStyle(.white.opacity(0.7))
-                    .frame(width: 72, alignment: .leading)
-                TextField("镜投", text: $nameDraft)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { commitName() }
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("画质与延迟")
-                    .foregroundStyle(.white.opacity(0.7))
-                Picker("画质与延迟", selection: $appState.quality) {
-                    ForEach(StreamQuality.allCases) { item in
-                        Text(item.title).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Text(appState.quality.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("帧率")
-                    .foregroundStyle(.white.opacity(0.7))
-                Picker("帧率", selection: $appState.fps) {
-                    ForEach(StreamFPS.allCases) { item in
-                        Text(item.title).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
-
-            Toggle("连接时需要配对码", isOn: $appState.requirePin)
-                .foregroundStyle(.white)
-        }
-    }
-
-    private var advancedSettings: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                withAnimation(panelAnimation) { showAdvanced.toggle() }
-            } label: {
-                HStack {
-                    Text("高级设置")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .rotationEffect(.degrees(showAdvanced ? 90 : 0))
-                        .animation(reduceMotion ? nil : panelAnimation, value: showAdvanced)
-                }
-                .foregroundStyle(.white.opacity(0.7))
-            }
-            .buttonStyle(SoftButtonStyle())
-
-            if showAdvanced {
-                advancedControls
-                    .transition(detailTransition)
-            }
-        }
-    }
-
-    private var advancedControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Toggle("比例设置", isOn: $appState.allowsCustomAspect)
-                .foregroundStyle(.white)
-            Text(appState.allowsCustomAspect
-                 ? "拖动滑块把画面调窄或调宽。窗口仍然只能放大或缩小。"
-                 : "窗口只能放大或缩小，投屏比例保持不变。")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.45))
-                .fixedSize(horizontal: false, vertical: true)
-            if appState.allowsCustomAspect {
-                HStack(spacing: 8) {
-                    Text("更窄")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.45))
-                    Slider(value: $appState.aspectScale, in: 0.6...1.8)
-                    Text("更宽")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.45))
-                }
-                .transition(detailTransition)
-            }
-            if video.videoSize.width > 1, video.videoSize.height > 1 {
-                Text("设备画面 \(Int(video.videoSize.width.rounded())) × \(Int(video.videoSize.height.rounded()))")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-            Button("重置比例") {
-                appState.resetAspectRatio()
-            }
-        }
-        .animation(panelAnimation, value: appState.allowsCustomAspect)
-    }
-
-    private var versionRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("版本 \(AppVersion.current)")
-                    .foregroundStyle(.white.opacity(0.7))
-                Spacer()
-                #if !APP_STORE
-                Button(updates.phase == .checking ? "正在检查…" : "检查更新") {
-                    updates.check()
-                }
-                .disabled(updates.phase == .checking)
-                #endif
-            }
-            #if !APP_STORE
-            switch updates.phase {
-            case .idle, .checking:
-                EmptyView()
-            case .upToDate:
-                Text("已是最新版本")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.45))
-            case .available(let version, let url):
-                HStack {
-                    Text("发现新版本 \(version)")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.7))
-                    Spacer()
-                    Button("下载") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-            case .failed:
-                Text("没有连上，稍后再试")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-            #endif
-        }
-    }
-
     private var displayName: String {
         let trimmed = appState.receiverName.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "镜投" : trimmed
     }
 
-    private func commitName() {
-        let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        appState.receiverName = trimmed.isEmpty ? "镜投" : trimmed
-        nameDraft = appState.receiverName
-    }
-}
-
-private struct SoftButtonStyle: ButtonStyle {
-    var hoverScale: CGFloat = 1
-
-    func makeBody(configuration: Configuration) -> some View {
-        SoftButtonContent(configuration: configuration, hoverScale: hoverScale)
-    }
-}
-
-private struct SoftButtonContent: View {
-    let configuration: ButtonStyleConfiguration
-    let hoverScale: CGFloat
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.isEnabled) private var isEnabled
-    @State private var hovered = false
-
-    var body: some View {
-        configuration.label
-            .opacity(isEnabled ? (configuration.isPressed ? 0.65 : hovered ? 1 : 0.88) : 0.45)
-            .scaleEffect(reduceMotion || !isEnabled ? 1 : configuration.isPressed ? 0.98 : hovered ? hoverScale : 1)
-            .animation(.easeOut(duration: reduceMotion ? 0.08 : 0.16), value: hovered)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-            .onHover { hovered = $0 }
-    }
 }
 
 private struct ScreenMirroringButton: View {

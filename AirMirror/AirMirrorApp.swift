@@ -16,6 +16,10 @@ struct AirMirrorApp: App {
         .windowResizability(.automatic)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            CommandGroup(replacing: .appSettings) {
+                Button("设置…") { MirrorSettingsWindowController.shared.show() }
+                    .keyboardShortcut(",", modifiers: .command)
+            }
             AuxiliaryCommands()
         }
     }

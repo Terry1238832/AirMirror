@@ -65,6 +65,8 @@ xcodebuild -project AirMirror.xcodeproj -scheme AirMirror -configuration Release
 
 ## 验证记录
 
+- 设置窗口后续调整：移出投屏画面的覆盖面板，改为单实例纵向窗口；已实查分区排版、展开高级设置、滚动到底部、应用菜单重开，以及「完成」和原生关闭命令返回投屏窗口。接收状态仍保持广播；没有连接移动设备进行本轮硬件投屏测试。两渠道编译通过。
+
 - GitHub Release 构建与 `APP_STORE` 渠道预览构建均成功。
 - 实际 Mach-O 校验：GitHub 构建含仓库 URL 和发布接口 URL；商店渠道二进制均不含这两个地址。
 - 两个应用包内的隐私清单、隐私说明、第三方说明、WindowPaste MIT 与 UxPlay GPL 共 5 项资源均与源码一致，plist 语法校验通过。
