@@ -2,13 +2,14 @@ import SwiftUI
 
 /// APP_STORE is a build-time channel choice, never inferred from an absent receipt.
 struct RepositoryFooter: View {
+    var compact = false
     @State private var document: InformationDocument?
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: compact ? 6 : 8) {
             #if !APP_STORE
             Link(destination: URL(string: "https://github.com/Terry1238832/AirMirror")!) {
-                Label("GitHub · Terry1238832/AirMirror", systemImage: "arrow.up.right.square")
+                Label(compact ? "GitHub · AirMirror" : "GitHub · Terry1238832/AirMirror", systemImage: "arrow.up.right.square")
             }
             .help("打开镜投的 GitHub 仓库")
             #endif
@@ -18,7 +19,7 @@ struct RepositoryFooter: View {
             }
             .buttonStyle(.plain)
         }
-        .font(.caption)
+        .font(compact ? .system(size: 10.5) : .caption)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity)
         .sheet(item: $document) { item in

@@ -11,7 +11,7 @@ struct AirMirrorApp: App {
             ContentView()
                 .environmentObject(appState)
         }
-        .defaultSize(width: 860, height: 720)
+        .defaultSize(width: 480, height: 402)
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.automatic)
         .commands {

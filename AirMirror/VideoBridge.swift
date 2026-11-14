@@ -952,7 +952,7 @@ struct WindowAspectLock: NSViewRepresentable {
 
     private func minimumContentSize(for aspect: CGSize) -> NSSize {
         let ratio = aspect.width / max(aspect.height, 1)
-        let shortSide: CGFloat = 240
+        let shortSide: CGFloat = streaming ? 240 : 300
         if ratio >= 1 {
             return NSSize(width: shortSide * ratio, height: shortSide)
         }

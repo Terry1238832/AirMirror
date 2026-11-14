@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var nameDraft: String = ""
     @State private var showSettings = false
     @State private var showAdvanced = false
+    @State private var showHelp = false
     #if !APP_STORE
     @StateObject private var updates = UpdateChecker()
     #endif
@@ -28,6 +29,7 @@ struct ContentView: View {
             ZStack {
                 if !video.hasVideo {
                     waitingLayout
+                        .ignoresSafeArea(.container, edges: .top)
                         .transition(.opacity)
                 } else {
                     streamingOverlay
@@ -71,11 +73,13 @@ struct ContentView: View {
             if streaming {
                 withAnimation(panelAnimation) {
                     showSettings = false
+                    showHelp = false
                 }
             }
         }
         .onExitCommand {
-            if showSettings { dismissSettings() }
+            if showHelp { showHelp = false }
+            else if showSettings { dismissSettings() }
         }
     }
 
@@ -91,6 +95,7 @@ struct ContentView: View {
     }
 
     private func presentSettings() {
+        showHelp = false
         withAnimation(panelAnimation) { showSettings = true }
     }
 
@@ -101,28 +106,45 @@ struct ContentView: View {
 
     private var waitingLayout: some View {
         VStack(spacing: 0) {
-            Color.clear.frame(height: 36)
-            ScrollView(.vertical, showsIndicators: false) {
-                waiting
+            HStack {
+                Spacer()
+                helpButton
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 36)
+
+            // Keep SwiftUI's fitting size from fighting the native window aspect lock.
+            // PINs and errors can scroll in this area without displacing the footer.
+            GeometryReader { area in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 4)
+                        waiting
+
+                        connectionChoices
+                            .padding(.top, 20)
+
+                        HStack(spacing: 32) {
+                            auxiliaryMenu(compact: false)
+                            Button {
+                                presentSettings()
+                            } label: {
+                                Label("设置", systemImage: "gearshape")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.58))
+                            }
+                            .buttonStyle(SoftButtonStyle())
+                        }
+                        .padding(.top, 16)
+                        Spacer(minLength: 10)
+                    }
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
-            }
-            HStack(spacing: 24) {
-                auxiliaryMenu(compact: false)
-                Button {
-                    presentSettings()
-                } label: {
-                    Label("设置", systemImage: "gearshape")
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.72))
+                    .frame(minHeight: area.size.height)
                 }
-                .buttonStyle(SoftButtonStyle())
             }
-            .padding(.bottom, 14)
-            RepositoryFooter()
+            RepositoryFooter(compact: true)
                 .padding(.horizontal, 20)
-                .padding(.bottom, 18)
+                .padding(.bottom, 16)
         }
     }
 
@@ -138,6 +160,7 @@ struct ContentView: View {
                         .background(.black.opacity(0.45), in: Capsule())
                 }
                 Spacer()
+                helpButton
                 auxiliaryMenu(compact: true)
                 Button {
                     presentSettings()
@@ -171,7 +194,7 @@ struct ContentView: View {
                     .background(.black.opacity(0.45), in: Circle())
             } else {
                 Label("辅助功能", systemImage: "square.grid.2x2")
-                    .font(.callout.weight(.medium)).foregroundStyle(.white.opacity(0.72))
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.58))
             }
         }
         .menuStyle(.borderlessButton)
@@ -196,42 +219,111 @@ struct ContentView: View {
     }
 
     private var waiting: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 12) {
             Image(systemName: appState.connectionMode.symbol)
-                .font(.system(size: 38, weight: .semibold))
+                .font(.system(size: 32, weight: .medium))
+                .frame(height: 38)
                 .foregroundStyle(.white)
                 .symbolRenderingMode(.hierarchical)
                 .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
                 .animation(fadeAnimation, value: appState.connectionMode)
 
             Text("等待投屏")
-                .font(.system(size: 34, weight: .semibold, design: .rounded))
+                .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(.white)
-
-            connectionPicker
-                .frame(maxWidth: 320)
-
-            Text(statusLine)
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.72))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 520)
-                .contentTransition(.opacity)
-                .animation(fadeAnimation, value: statusLine)
+                .help(statusLine)
 
             if appState.connectionMode == .wireless, let pin = appState.pinCode {
                 Text("配对码 \(pin)")
-                    .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
+                    .font(.system(.body, design: .rounded).monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white)
                     .transition(detailTransition)
             }
-
-            instructionCard
-                .padding(.top, 6)
+            if appState.status == .failed || appState.status == .missingEngine || appState.wiredPermissionDenied {
+                Text(statusLine)
+                    .font(.caption)
+                    .foregroundStyle(.orange.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
         }
-        .padding(.horizontal, 36)
+        .padding(.horizontal, 24)
         .animation(fadeAnimation, value: appState.pinCode)
+    }
+
+    private var connectionChoices: some View {
+        HStack(spacing: 28) {
+            ForEach(ConnectionMode.allCases) { mode in
+                let selected = appState.connectionMode == mode
+                Button {
+                    appState.connectionMode = mode
+                } label: {
+                    Text(mode.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white.opacity(selected ? 1 : 0.62))
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(selected ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.07))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(.white.opacity(selected ? 0.12 : 0.06), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(SoftButtonStyle(hoverScale: 1.015))
+                .accessibilityAddTraits(selected ? .isSelected : [])
+                .accessibilityValue(selected ? "已选择" : "未选择")
+            }
+        }
+        .frame(maxWidth: 312)
+        .padding(.horizontal, 28)
+        .animation(fadeAnimation, value: appState.connectionMode)
+    }
+
+    private var helpButton: some View {
+        Button {
+            showHelp.toggle()
+        } label: {
+            Image(systemName: "questionmark.circle")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(.white.opacity(0.48))
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+        }
+        .buttonStyle(SoftButtonStyle())
+        .accessibilityLabel("投屏教程")
+        .help("投屏教程与连接帮助")
+        .popover(isPresented: $showHelp, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text(appState.connectionMode == .usb ? "USB 有线投屏" : "无线投屏")
+                        .font(.headline)
+                    Spacer()
+                    Button { showHelp = false } label: {
+                        Image(systemName: "xmark").font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("关闭教程")
+                }
+                .padding(20)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(statusLine)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        instructionCard
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
+            }
+            .frame(width: 360, height: appState.connectionMode == .usb ? 460 : 400)
+            .preferredColorScheme(.dark)
+        }
     }
 
     private var statusLine: String {
@@ -262,7 +354,7 @@ struct ContentView: View {
                     .transition(detailTransition)
             }
         }
-        .padding(22)
+        .padding(18)
         .frame(maxWidth: 520, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
