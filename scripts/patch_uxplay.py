@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import argparse
 import shutil
 import sys
 
 root = Path(__file__).resolve().parent.parent
-uxplay = root / "Vendor" / "UxPlay"
+parser = argparse.ArgumentParser()
+parser.add_argument("--source", type=Path, default=root / "Vendor" / "UxPlay")
+uxplay = parser.parse_args().source.resolve()
 patches = Path(__file__).resolve().parent / "patches"
 
 if not uxplay.exists():

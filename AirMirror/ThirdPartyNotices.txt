@@ -7,7 +7,7 @@ Copyright (c) 2026 粮宇。MIT License。
 MIT 许可证全文见下文。
 
 UxPlay（无线接收引擎）
-基于 UxPlay 59f65c804c16f7f6fc7bce6786d5b1eaaf1bf157；本项目补丁位于源码仓库 scripts/patches，构建流程位于 build.sh。
+基于 UxPlay 59f65c804c16f7f6fc7bce6786d5b1eaaf1bf157；本项目补丁位于源码仓库 scripts/patches，构建流程位于 build.sh 和 scripts/build_store_engine.py。
 UxPlay 按 GNU GPL version 3 分发。下文提供 GPL v3 全文；UxPlay 各源码文件的版权声明仍归原作者。
 
 运行时依赖

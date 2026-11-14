@@ -45,9 +45,15 @@ struct WindowPasteView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("窗贴 · 镜投辅助功能")
                     .font(.title2.weight(.semibold))
+                #if APP_STORE
+                Text("按下 \(appState.hotKey.displayName) 复制目标窗口截图，再按 ⌘V 粘贴")
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                #else
                 Text("按下 \(appState.hotKey.displayName)，截取目标窗口并粘贴到当前光标处")
                     .foregroundStyle(.secondary)
                     .font(.callout)
+                #endif
                 Text("独立窗口，关闭后快捷键仍可使用，不影响投屏。")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -60,7 +66,11 @@ struct WindowPasteView: View {
             VStack(alignment: .leading, spacing: 8) {
                 labeled("1", "保持镜投投屏中，或选择其他要截取的软件和窗口")
                 labeled("2", "如果有多个窗口，在下面点选要截取的那个")
+                #if APP_STORE
+                labeled("3", "按下 \(appState.hotKey.displayName) 截图复制，再到聊天框、文档中按 ⌘V 粘贴")
+                #else
                 labeled("3", "把光标放到聊天框、文档等要插入图片的位置，按下 \(appState.hotKey.displayName)")
+                #endif
                 if appState.hotKey.isDefault {
                     Text("默认快捷键会占用系统自带的「切换当前应用窗口」。可在下面改成别的组合。")
                         .font(.caption)
@@ -78,8 +88,12 @@ struct WindowPasteView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
+                        #if APP_STORE
+                        Text("截取并复制").font(.headline)
+                        #else
                         Text("截取并粘贴")
                             .font(.headline)
+                        #endif
                         Text(appState.isRecordingHotKey
                              ? "按下新的组合键，Esc 取消"
                              : "点右边按钮后按下新组合。默认是 Command+·")
@@ -199,8 +213,13 @@ struct WindowPasteView: View {
         GroupBox("权限") {
             VStack(alignment: .leading, spacing: 12) {
                 if WindowPasteCaptureService.supportsDirectMirrorCapture {
+                    #if APP_STORE
+                    Text("镜投自身的投屏画面直接从接收端读取，无需屏幕录制权限。截图复制后由你手动粘贴。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    #else
                     Text("镜投自身的投屏画面直接从接收端读取，无需屏幕录制权限。自动粘贴仍需辅助功能权限。")
                         .font(.caption).foregroundStyle(.secondary)
+                    #endif
                 }
                 permissionRow(
                     title: "屏幕录制（其他应用）",
@@ -212,6 +231,7 @@ struct WindowPasteView: View {
                     WindowPastePermissionService.openScreenRecordingSettings()
                 }
 
+                #if !APP_STORE
                 permissionRow(
                     title: "辅助功能",
                     detail: "用来把截图自动粘贴到当前光标位置。没有此权限时仍会复制到剪贴板",
@@ -221,19 +241,22 @@ struct WindowPasteView: View {
                     WindowPastePermissionService.requestAccessibility()
                     WindowPastePermissionService.openAccessibilitySettings()
                 }
+                #endif
             }
             .padding(.vertical, 4)
         }
     }
 
     private var extras: some View {
-        GroupBox("粘贴后") {
+        GroupBox("其他") {
             VStack(alignment: .leading, spacing: 10) {
+                #if !APP_STORE
                 Toggle("自动回车", isOn: autoReturnBinding)
                     .padding(.vertical, 2)
                 Text("粘贴截图后再按一次回车，适合微信等聊天框直接发出去。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                #endif
                 Toggle("登录 Mac 时自动打开镜投", isOn: launchAtLoginBinding)
                     .padding(.vertical, 2)
                 Text("此选项控制镜投整体。建议先把镜投放到「应用程序」文件夹。")

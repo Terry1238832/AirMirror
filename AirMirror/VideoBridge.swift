@@ -68,7 +68,12 @@ final class VideoBridge: ObservableObject {
     private var lastLetterbox: Bool?
 
     init() {
+        #if APP_STORE
+        socketPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("v\(ProcessInfo.processInfo.processIdentifier).sock").path
+        #else
         socketPath = "/tmp/airmirror-\(ProcessInfo.processInfo.processIdentifier).sock"
+        #endif
         let layer = AVSampleBufferDisplayLayer()
         layer.videoGravity = .resize
         layer.backgroundColor = NSColor.black.cgColor

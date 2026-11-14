@@ -53,11 +53,21 @@ final class ReceiverEngine {
             "-m", deviceMAC,
             "-reset", "0"
         ]
+        // Above 1080p, capable clients need ScreenMultiCodec advertised for HEVC.
+        // UxPlay keeps its H.264 receiver available for clients using that codec.
+        if quality == .sharp {
+            arguments.append("-h265")
+        }
         if requirePin {
             arguments.append("-pin")
         }
         process.arguments = arguments
 
+        #if APP_STORE
+        // Do not inherit external plugin, DYLD, HOME or executable search overrides.
+        var environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                           "HOME": NSHomeDirectory(), "TMPDIR": NSTemporaryDirectory()]
+        #else
         var environment = ProcessInfo.processInfo.environment
         let extraPaths = [
             "/opt/homebrew/bin",
@@ -73,6 +83,7 @@ final class ReceiverEngine {
             .joined(separator: ":")
         environment["PATH"] = path
         environment["HOME"] = NSHomeDirectory()
+        #endif
         let rc = EngineLocator.supportDirectory.appendingPathComponent("uxplayrc")
         if !FileManager.default.fileExists(atPath: rc.path) {
             try? "# 镜投 runtime config\n".write(to: rc, atomically: true, encoding: .utf8)
@@ -81,12 +92,16 @@ final class ReceiverEngine {
         let bundledPlugins = Bundle.main.bundleURL.appendingPathComponent("Contents/PlugIns/gstreamer")
         if FileManager.default.fileExists(atPath: bundledPlugins.path) {
             environment["GST_PLUGIN_PATH"] = bundledPlugins.path
+            environment["GST_PLUGIN_PATH_1_0"] = bundledPlugins.path
             environment["GST_PLUGIN_SYSTEM_PATH"] = ""
             environment["GST_PLUGIN_SYSTEM_PATH_1_0"] = ""
             environment["GST_REGISTRY_FORK"] = "no"
-            let registry = EngineLocator.supportDirectory.appendingPathComponent("gstreamer-1.0-registry.bin")
+            let registry = EngineLocator.cacheDirectory.appendingPathComponent("gstreamer-1.0-registry.bin")
             environment["GST_REGISTRY"] = registry.path
         } else {
+            #if APP_STORE
+            throw EngineError.missingRuntime
+            #else
             let brewPrefix = FileManager.default.fileExists(atPath: "/opt/homebrew") ? "/opt/homebrew" : "/usr/local"
             let pluginPath = "\(brewPrefix)/lib/gstreamer-1.0"
             if FileManager.default.fileExists(atPath: pluginPath) {
@@ -96,6 +111,7 @@ final class ReceiverEngine {
             if FileManager.default.fileExists(atPath: libPath) {
                 environment["DYLD_FALLBACK_LIBRARY_PATH"] = libPath
             }
+            #endif
         }
         environment["LANG"] = "en_US.UTF-8"
         environment["AIRMIRROR_VIDEO_SOCK"] = videoSocket
@@ -175,7 +191,11 @@ final class ReceiverEngine {
 
     private func interpret(_ line: String) {
         onEvent?(.init(kind: .log(line)))
+        #if STORE_DIAGNOSTICS
+        logger.notice("AIRMIRROR_STORE_DIAGNOSTICS \(line, privacy: .public)")
+        #else
         logger.debug("uxplay: \(line, privacy: .private)")
+        #endif
 
         let lower = line.lowercased()
 
@@ -227,11 +247,18 @@ final class ReceiverEngine {
 
 enum EngineError: LocalizedError {
     case missingBinary
+    case missingRuntime
 
     var errorDescription: String? {
         switch self {
+        case .missingRuntime:
+            return "应用内的无线接收组件不完整，请重新安装镜投。"
         case .missingBinary:
+            #if APP_STORE
+            return "应用内的无线接收引擎缺失，请重新安装镜投。"
+            #else
             return "还没有投屏引擎。请先运行 AirMirror/build.sh 完成安装。"
+            #endif
         }
     }
 }

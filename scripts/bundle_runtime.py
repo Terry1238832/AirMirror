@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Copy Homebrew GStreamer and its libraries into the app bundle."""
+"""Embed GStreamer from an isolated SDK prefix or a local Homebrew install."""
 
 import os
+import argparse
 import shutil
 import subprocess
 import sys
@@ -64,10 +65,10 @@ def rpaths(path: Path):
     return found
 
 
-def index_libraries():
-    roots = [Path("/opt/homebrew/lib"), Path("/usr/local/lib")]
+def index_libraries(prefix=None):
+    roots = [prefix / "lib"] if prefix else [Path("/opt/homebrew/lib"), Path("/usr/local/lib")]
     opt = Path("/opt/homebrew/opt")
-    if opt.exists():
+    if not prefix and opt.exists():
         roots.extend(path / "lib" for path in opt.iterdir() if (path / "lib").is_dir())
     found = {}
     for root in roots:
@@ -84,8 +85,10 @@ def needs_bundle(dep: str) -> bool:
     return not dep.startswith(SKIP_PREFIXES)
 
 
-def resolve_dep(dep: str, library_index):
+def resolve_dep(dep: str, library_index, isolated=False):
     name = Path(dep).name
+    if isolated:
+        return library_index.get(name)
     if dep.startswith("/"):
         path = Path(dep)
         if path.exists():
@@ -94,15 +97,20 @@ def resolve_dep(dep: str, library_index):
 
 
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("usage: bundle_runtime.py App.app")
-    app = Path(sys.argv[1]).resolve()
-    uxplay = app / "Contents" / "Helpers" / "uxplay"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("app", type=Path)
+    parser.add_argument("--runtime-prefix", type=Path)
+    parser.add_argument("--helper-relative-path", default="Contents/Helpers/uxplay")
+    parser.add_argument("--arch", choices=["arm64", "x86_64"])
+    parser.add_argument("--strict", action="store_true")
+    args = parser.parse_args()
+    app = args.app.resolve()
+    uxplay = app / args.helper_relative_path
     if not uxplay.exists():
         sys.exit(f"missing {uxplay}")
 
-    plugin_src = Path("/opt/homebrew/lib/gstreamer-1.0")
-    if not plugin_src.exists():
+    plugin_src = args.runtime_prefix / "lib/gstreamer-1.0" if args.runtime_prefix else Path("/opt/homebrew/lib/gstreamer-1.0")
+    if not args.runtime_prefix and not plugin_src.exists():
         plugin_src = Path("/usr/local/lib/gstreamer-1.0")
     frameworks = app / "Contents" / "Frameworks"
     plugins = app / "Contents" / "PlugIns" / "gstreamer"
@@ -113,7 +121,20 @@ def main():
     frameworks.mkdir(parents=True)
     plugins.mkdir(parents=True)
 
-    library_index = index_libraries()
+    def thin_binary(binary):
+        if not args.arch:
+            return
+        arches = subprocess.check_output(["lipo", "-archs", str(binary)], text=True).split()
+        if args.arch not in arches:
+            sys.exit(f"{binary.name} does not support {args.arch}")
+        if len(arches) > 1:
+            thin = binary.with_suffix(binary.suffix + ".thin")
+            run(["lipo", str(binary), "-thin", args.arch, "-output", str(thin)])
+            thin.replace(binary)
+
+    thin_binary(uxplay)
+
+    library_index = index_libraries(args.runtime_prefix)
     copied = {}
     queued_names = set()
     queue = []
@@ -124,9 +145,12 @@ def main():
             return dest
         shutil.copy2(source, dest, follow_symlinks=True)
         os.chmod(dest, 0o755)
+        thin_binary(dest)
         copied[name] = dest
+        ident = otool_id(dest)
         for dep in otool_deps(dest):
-            consider(dep)
+            if dep != ident:
+                consider(dep)
         return dest
 
     def consider(dep: str):
@@ -135,8 +159,10 @@ def main():
         name = Path(dep).name
         if name in copied or name in queued_names:
             return
-        source = resolve_dep(dep, library_index)
+        source = resolve_dep(dep, library_index, isolated=args.runtime_prefix is not None)
         if source is None:
+            if args.strict:
+                sys.exit(f"unresolved runtime dependency: {dep}")
             print(f"warning: unresolved {dep}", file=sys.stderr)
             return
         queued_names.add(name)
@@ -150,9 +176,12 @@ def main():
         dest = plugins / name
         shutil.copy2(source, dest, follow_symlinks=True)
         os.chmod(dest, 0o755)
+        thin_binary(dest)
         plugin_dests.append(dest)
+        ident = otool_id(dest)
         for dep in otool_deps(dest):
-            consider(dep)
+            if dep != ident:
+                consider(dep)
 
     for dep in otool_deps(uxplay):
         consider(dep)
@@ -162,7 +191,6 @@ def main():
         copy_library(source, name)
 
     binaries = [uxplay, *plugin_dests, *copied.values()]
-
     for binary in binaries:
         ident = otool_id(binary)
         for dep in otool_deps(binary):
@@ -174,14 +202,17 @@ def main():
             elif dep != new:
                 run(["install_name_tool", "-change", dep, new, str(binary)])
         for old in rpaths(binary):
-            if "/opt/homebrew" in old or "/usr/local" in old or "/Cellar/" in old:
+            if "/opt/homebrew" in old or "/usr/local" in old or "/Cellar/" in old or (args.strict and not old.startswith("@")):
                 subprocess.run(["install_name_tool", "-delete_rpath", old, str(binary)], check=False)
 
-    run(["install_name_tool", "-add_rpath", "@executable_path/../Frameworks", str(uxplay)])
+    if "@executable_path/../Frameworks" not in rpaths(uxplay):
+        run(["install_name_tool", "-add_rpath", "@executable_path/../Frameworks", str(uxplay)])
     for plugin in plugin_dests:
-        run(["install_name_tool", "-add_rpath", "@loader_path/../../Frameworks", str(plugin)])
+        if "@loader_path/../../Frameworks" not in rpaths(plugin):
+            run(["install_name_tool", "-add_rpath", "@loader_path/../../Frameworks", str(plugin)])
     for library in copied.values():
-        run(["install_name_tool", "-add_rpath", "@loader_path", str(library)])
+        if "@loader_path" not in rpaths(library):
+            run(["install_name_tool", "-add_rpath", "@loader_path", str(library)])
 
     for binary in binaries:
         run(["codesign", "--force", "--sign", "-", str(binary)])

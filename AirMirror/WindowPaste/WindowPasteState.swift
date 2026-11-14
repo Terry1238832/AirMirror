@@ -42,7 +42,11 @@ final class WindowPasteState: ObservableObject {
         targetApp = defaults.data(forKey: Self.prefix + "target").flatMap { try? JSONDecoder().decode(WindowPasteTargetApp.self, from: $0) } ?? .mirror
         selectedWindowID = UInt32(clamping: defaults.integer(forKey: Self.prefix + "windowID"))
         selectedWindowTitle = defaults.string(forKey: Self.prefix + "windowTitle") ?? ""
+        #if APP_STORE
+        autoPressReturn = false
+        #else
         autoPressReturn = defaults.bool(forKey: Self.prefix + "autoReturn")
+        #endif
         if defaults.object(forKey: Self.prefix + "hotKeyCode") != nil {
             hotKey = WindowPasteHotKey(keyCode: UInt32(clamping: defaults.integer(forKey: Self.prefix + "hotKeyCode")),
                                       carbonModifiers: UInt32(clamping: defaults.integer(forKey: Self.prefix + "hotKeyModifiers")))
@@ -88,7 +92,13 @@ final class WindowPasteState: ObservableObject {
         }
     }
 
-    func captureAndPaste() { capture(copyOnly: false) }
+    func captureAndPaste() {
+        #if APP_STORE
+        capture(copyOnly: true)
+        #else
+        capture(copyOnly: false)
+        #endif
+    }
     func copyScreenshot() { capture(copyOnly: true) }
 
     private func capture(copyOnly: Bool) {
@@ -102,8 +112,10 @@ final class WindowPasteState: ObservableObject {
         let target = targetApp
         let selected = selectedWindowID
         let title = selectedWindowTitle
+        #if !APP_STORE
         let destination = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let pressReturn = autoPressReturn
+        #endif
         captureTask = Task { [weak self] in
             guard let self else { return }
             defer {
@@ -117,6 +129,9 @@ final class WindowPasteState: ObservableObject {
                     self.present("无法写入截图，请重试。", success: false)
                     return
                 }
+                #if APP_STORE
+                self.present("已复制截图，在目标应用中按 ⌘V 粘贴。", success: true)
+                #else
                 guard !copyOnly, let destination, destination != ProcessInfo.processInfo.processIdentifier else {
                     self.present("已复制截图，可在目标应用中粘贴。", success: true)
                     return
@@ -136,6 +151,7 @@ final class WindowPasteState: ObservableObject {
                 case .cancelled: break
                 }
                 self.refreshPermissions()
+                #endif
             } catch is CancellationError { } catch {
                 guard self.captureGeneration == generation else { return }
                 self.present(error.localizedDescription, success: false)
@@ -219,8 +235,12 @@ final class WindowPasteState: ObservableObject {
     }
 
     func setAutoPressReturn(_ enabled: Bool) {
+        #if APP_STORE
+        autoPressReturn = false
+        #else
         autoPressReturn = enabled
         defaults.set(enabled, forKey: Self.prefix + "autoReturn")
+        #endif
     }
 
     func refreshLaunchAtLogin() { launchAtLogin = SMAppService.mainApp.status == .enabled }

@@ -1,0 +1,20 @@
+{
+  "gstreamer": "1.28.8",
+  "libplist": "2.7.0",
+  "uxplay": "59f65c804c16f7f6fc7bce6786d5b1eaaf1bf157",
+  "deployment_target": "14.0",
+  "downloads": {
+    "gstreamer-1.0-1.28.8-universal.pkg": {
+      "url": "https://gstreamer.freedesktop.org/data/pkg/osx/1.28.8/gstreamer-1.0-1.28.8-universal.pkg",
+      "sha256": "d371ab04a7632713626836c2fc234e863cc98484c74c473eba99b0fbd9b3a3fe"
+    },
+    "gstreamer-1.0-devel-1.28.8-universal.pkg": {
+      "url": "https://gstreamer.freedesktop.org/data/pkg/osx/1.28.8/gstreamer-1.0-devel-1.28.8-universal.pkg",
+      "sha256": "e6d380bc17be7eccf13e0154567d4718fc9321da822408c7ca0cd808b3d4a3f7"
+    },
+    "libplist-2.7.0.tar.bz2": {
+      "url": "https://github.com/libimobiledevice/libplist/releases/download/2.7.0/libplist-2.7.0.tar.bz2",
+      "sha256": "7ac42301e896b1ebe3c654634780c82baa7cb70df8554e683ff89f7c2643eb8b"
+    }
+  }
+}

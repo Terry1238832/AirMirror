@@ -14,6 +14,7 @@ enum WindowPasteClipboardService {
         return clipboard.setData(tiff, forType: .tiff) && clipboard.setData(png, forType: .png)
     }
 
+    #if !APP_STORE
     static func pasteWhenReady(into processID: pid_t, pressReturn: Bool) async -> PasteOutcome {
         for _ in 0..<40 {
             guard !Task.isCancelled else { return .cancelled }
@@ -46,4 +47,5 @@ enum WindowPasteClipboardService {
         up.post(tap: .cghidEventTap)
         return true
     }
+    #endif
 }

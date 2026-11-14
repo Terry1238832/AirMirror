@@ -7,5 +7,7 @@ xcuserdata/
 .DS_Store
 *.moved-aside
 *.hmap
+__pycache__/
+*.pyc
 *.dSYM.zip
 *.dSYM

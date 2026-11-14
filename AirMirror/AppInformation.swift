@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// APP_STORE is a build-time channel choice, never inferred from an absent receipt.
@@ -33,7 +34,12 @@ private enum InformationDocument: String, Identifiable {
     var id: String { rawValue }
     var title: String { self == .privacy ? "隐私说明" : "开源许可" }
     var resources: [String] {
-        self == .privacy ? ["PrivacyPolicy"] : ["ThirdPartyNotices", "WindowPaste-LICENSE", "UxPlay-LICENSE"]
+        if self == .privacy { return ["PrivacyPolicy"] }
+        var names = ["ThirdPartyNotices", "WindowPaste-LICENSE", "UxPlay-LICENSE"]
+        if Bundle.main.url(forResource: "StoreRuntimeNotices", withExtension: "txt") != nil {
+            names.append("StoreRuntimeNotices")
+        }
+        return names
     }
 }
 
@@ -54,6 +60,10 @@ private struct InformationDocumentView: View {
                     .lineSpacing(5)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if document == .licenses,
+               let folder = Bundle.main.url(forResource: "ThirdPartyLicenses", withExtension: nil) {
+                Button("查看运行时许可文件…") { NSWorkspace.shared.open(folder) }
             }
         }
         .padding(24)

@@ -107,7 +107,7 @@ final class AppState: ObservableObject {
 
     private var started = false
     private var stoppingIntentionally = false
-    private var consecutiveExits = 0
+    private var restartBudget = ReceiverRestartBudget()
     private var restartWork: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
     private let deviceMAC: String
@@ -124,7 +124,7 @@ final class AppState: ObservableObject {
            let quality = StreamQuality(rawValue: storedQuality) {
             self.quality = quality
         } else {
-            quality = .fluent
+            quality = .sharp
         }
         if defaults.object(forKey: Self.fpsKey) != nil,
            let fps = StreamFPS(rawValue: defaults.integer(forKey: Self.fpsKey)) {
@@ -229,6 +229,7 @@ final class AppState: ObservableObject {
 
     func stopReceiver() {
         stoppingIntentionally = true
+        restartBudget.reset()
         restartWork?.cancel()
         discovery.stop()
         engine.stop()
@@ -343,13 +344,14 @@ final class AppState: ObservableObject {
         guard connectionMode == .wireless, !stoppingIntentionally else { return }
         switch event.kind {
         case .started:
-            consecutiveExits = 0
+            restartBudget.didStart()
             status = .starting
         case .advertising:
             if status != .connected {
                 status = .advertising
             }
         case .connected(let client):
+            restartBudget.reset()
             connectedClient = client
             status = .connected
         case .disconnected:
@@ -378,8 +380,7 @@ final class AppState: ObservableObject {
                 lastError = nil
                 return
             }
-            consecutiveExits += 1
-            if consecutiveExits >= 6 {
+            guard let retryDelay = restartBudget.retryDelayAfterExit() else {
                 status = .failed
                 lastError = "接收端反复退出，请检查投屏引擎"
                 return
@@ -393,7 +394,7 @@ final class AppState: ObservableObject {
                 self.startReceiver()
             }
             restartWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay, execute: work)
         }
     }
 

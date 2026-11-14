@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		B20000000000000000000001 /* AirMirror.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AirMirror.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000000000000000000020 /* AppStore.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/AppStore.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -47,6 +48,7 @@
 			isa = PBXGroup;
 			children = (
 				B20000000000000000000003 /* AirMirror */,
+				B20000000000000000000020 /* AppStore.xcconfig */,
 				B20000000000000000000006 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -69,6 +71,7 @@
 				B20000000000000000000008 /* Sources */,
 				B20000000000000000000004 /* Frameworks */,
 				B20000000000000000000009 /* Resources */,
+				B20000000000000000000021 /* Embed Store Runtime */,
 			);
 			buildRules = (
 			);
@@ -131,6 +134,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+        B20000000000000000000021 /* Embed Store Runtime */ = {
+            isa = PBXShellScriptBuildPhase;
+            alwaysOutOfDate = 1;
+            buildActionMask = 2147483647;
+            files = ();
+            inputPaths = ();
+            name = "Embed Store Runtime";
+            outputPaths = ();
+            runOnlyForDeploymentPostprocessing = 0;
+            shellPath = /bin/zsh;
+            shellScript = "if [[ \" ${SWIFT_ACTIVE_COMPILATION_CONDITIONS} \" == *\" APP_STORE \"* ]]; then\n    /usr/bin/python3 \"$SRCROOT/scripts/prepare_store_runtime.py\" \"$TARGET_BUILD_DIR/$WRAPPER_NAME\" \"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\nfi\n";
+        };
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
 		B20000000000000000000011 /* Debug */ = {
@@ -238,6 +256,52 @@
 			};
 			name = Release;
 		};
+		B20000000000000000000022 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_LANGUAGE = "zh-Hans";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+			};
+			name = AppStore;
+		};
+		B20000000000000000000023 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B20000000000000000000020 /* AppStore.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 5;
+				ENABLE_USER_SELECTED_FILES = disable;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AirMirror/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "镜投";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.liangyu.airmirror;
+				PRODUCT_NAME = AirMirror;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = AppStore;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -246,6 +310,7 @@
 			buildConfigurations = (
 				B20000000000000000000015 /* Debug */,
 				B20000000000000000000016 /* Release */,
+				B20000000000000000000023 /* AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -255,6 +320,7 @@
 			buildConfigurations = (
 				B20000000000000000000011 /* Debug */,
 				B20000000000000000000012 /* Release */,
+				B20000000000000000000022 /* AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
