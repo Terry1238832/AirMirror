@@ -240,35 +240,38 @@ struct ContentView: View {
         .buttonStyle(SoftButtonStyle())
         .accessibilityLabel("投屏教程")
         .help("投屏教程与连接帮助")
-        .popover(isPresented: $showHelp, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text(appState.connectionMode == .usb ? "USB 有线投屏" : "无线投屏")
-                        .font(.headline)
-                    Spacer()
-                    Button { showHelp = false } label: {
-                        Image(systemName: "xmark").font(.caption.weight(.semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("关闭教程")
+        .background(HelpPanelAnchor(isPresented: $showHelp, content: AnyView(
+            helpContents.environmentObject(appState).preferredColorScheme(.dark)
+        )).allowsHitTesting(false))
+    }
+
+    private var helpContents: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text(appState.connectionMode == .usb ? "USB 有线投屏" : "无线投屏")
+                    .font(.headline)
+                Spacer()
+                Button { showHelp = false } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.07), in: Circle())
+                        .contentShape(Circle())
                 }
-                .padding(20)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(statusLine)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        instructionCard
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                }
+                .buttonStyle(SoftButtonStyle())
+                .accessibilityLabel("关闭教程")
             }
-            .frame(width: 360, height: 460)
-            .preferredColorScheme(.dark)
+            Text(statusLine)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            instructionCard
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 28)
+        .frame(width: 360)
     }
 
     private var statusLine: String {
@@ -289,7 +292,9 @@ struct ContentView: View {
                     .transition(detailTransition)
             }
         }
-        .padding(18)
+        .padding(.horizontal, 18)
+        .padding(.top, 20)
+        .padding(.bottom, 26)
         .frame(maxWidth: 520, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
