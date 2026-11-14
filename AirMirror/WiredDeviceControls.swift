@@ -35,7 +35,7 @@ struct WiredDeviceControls: View {
                     Button("重新检测设备") { appState.refreshWiredDevices() }
                 }
                 if appState.wiredPermissionDenied {
-                    Button("打开相机权限设置") { openCameraPrivacySettings() }
+                    Button("打开相机权限设置") { WiredDevicePermissions.openCameraSettings() }
                 }
             }
 
@@ -48,9 +48,11 @@ struct WiredDeviceControls: View {
         }
     }
 
-    private func openCameraPrivacySettings() {
+}
+
+enum WiredDevicePermissions {
+    static func openCameraSettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") else { return }
         NSWorkspace.shared.open(url)
     }
-
 }

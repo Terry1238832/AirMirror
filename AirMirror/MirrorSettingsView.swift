@@ -6,7 +6,6 @@ struct MirrorSettingsView: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject private var video = AppState.shared.video
     @State private var nameDraft = ""
-    @State private var showAdvanced = false
     @FocusState private var nameIsFocused: Bool
     #if !APP_STORE
     @StateObject private var updates = UpdateChecker()
@@ -28,7 +27,7 @@ struct MirrorSettingsView: View {
                     receiverControls
                 }
                 settingsSection("画面") {
-                    advancedSettings
+                    pictureControls
                 }
                 settingsSection("辅助功能") {
                     Button { WindowPasteWindowController.shared.show() } label: {
@@ -184,31 +183,7 @@ struct MirrorSettingsView: View {
         }
     }
 
-    private var advancedSettings: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                withAnimation(panelAnimation) { showAdvanced.toggle() }
-            } label: {
-                HStack {
-                    Text("高级设置")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .rotationEffect(.degrees(showAdvanced ? 90 : 0))
-                        .animation(reduceMotion ? nil : panelAnimation, value: showAdvanced)
-                }
-                .foregroundStyle(.white.opacity(0.7))
-            }
-            .buttonStyle(SoftButtonStyle())
-
-            if showAdvanced {
-                advancedControls
-                    .transition(detailTransition)
-            }
-        }
-    }
-
-    private var advancedControls: some View {
+    private var pictureControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             Toggle("比例设置", isOn: $appState.allowsCustomAspect)
                 .foregroundStyle(.white)

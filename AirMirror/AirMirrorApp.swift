@@ -20,6 +20,7 @@ struct AirMirrorApp: App {
                 Button("设置…") { MirrorSettingsWindowController.shared.show() }
                     .keyboardShortcut(",", modifiers: .command)
             }
+            ConnectionCommands()
             AuxiliaryCommands()
         }
     }
