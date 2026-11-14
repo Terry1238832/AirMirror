@@ -123,7 +123,7 @@ final class ReceiverEngine {
         self.outputPipe = outputPipe
         self.errorPipe = errorPipe
         onEvent?(.init(kind: .started))
-        logger.info("uxplay started \(quality.rawValue) \(fps.rawValue)fps: \(executable.path, privacy: .public)")
+        logger.info("uxplay started \(quality.rawValue) \(fps.rawValue)fps: \(executable.path, privacy: .private)")
     }
 
     func stop() {
@@ -175,7 +175,7 @@ final class ReceiverEngine {
 
     private func interpret(_ line: String) {
         onEvent?(.init(kind: .log(line)))
-        logger.debug("uxplay: \(line, privacy: .public)")
+        logger.debug("uxplay: \(line, privacy: .private)")
 
         let lower = line.lowercased()
 

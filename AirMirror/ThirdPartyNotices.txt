@@ -1,0 +1,15 @@
+镜投第三方软件说明
+
+窗贴 / WindowPaste
+Copyright (c) 2026 粮宇。MIT License。
+本应用内置其窗口截图、快捷键和剪贴板工作流的适配版本。
+原始版本：d8f6bcb86a419b410518264798f5931b2d3344d3。
+MIT 许可证全文见下文。
+
+UxPlay（无线接收引擎）
+基于 UxPlay 59f65c804c16f7f6fc7bce6786d5b1eaaf1bf157；本项目补丁位于源码仓库 scripts/patches，构建流程位于 build.sh。
+UxPlay 按 GNU GPL version 3 分发。下文提供 GPL v3 全文；UxPlay 各源码文件的版权声明仍归原作者。
+
+运行时依赖
+无线运行时还打包 GStreamer、GLib、OpenSSL、libplist、FFmpeg / libav 及其传递依赖。各组件沿用各自许可证，未因软件合并而改变授权。
+这些依赖并非由窗贴的 MIT 许可证统一授权；再分发时应遵守各组件的具体许可条件。

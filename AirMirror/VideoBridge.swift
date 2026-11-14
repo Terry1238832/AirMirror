@@ -2,6 +2,7 @@ import AVFoundation
 import AppKit
 import Combine
 import CoreMedia
+import CoreImage
 import Darwin
 import Foundation
 import os
@@ -22,6 +23,7 @@ enum VideoBridgeError: LocalizedError {
 }
 
 final class VideoBridge: ObservableObject {
+    private static let snapshotContext = CIContext(options: [.cacheIntermediates: false])
     static let headerSize = 32
     static let magic: UInt32 = 0x31564d41
 
@@ -71,6 +73,18 @@ final class VideoBridge: ObservableObject {
         layer.videoGravity = .resize
         layer.backgroundColor = NSColor.black.cgColor
         displayLayer = layer
+    }
+
+    /// Read the decoded picture on demand; capturing never interrupts the receiver or changes focus.
+    @MainActor
+    func copyCurrentFrame() -> NSImage? {
+        guard hasVideo else { return nil }
+        if #available(macOS 14.4, *), let pixels = displayLayer.sampleBufferRenderer.displayedPixelBuffer() {
+            let frame = CIImage(cvPixelBuffer: pixels)
+            guard let image = Self.snapshotContext.createCGImage(frame, from: frame.extent) else { return nil }
+            return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+        }
+        return nil
     }
 
     func startListening() throws {
@@ -640,6 +654,20 @@ final class VideoBridge: ObservableObject {
     }
 }
 
+@MainActor
+enum MirrorWindowRegistry {
+    static let identifier = NSUserInterfaceItemIdentifier("com.liangyu.airmirror.projection")
+    static weak var window: NSWindow?
+
+    static func restore() -> Bool {
+        guard let window else { return false }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        return true
+    }
+}
+
 struct VideoCanvas: NSViewRepresentable {
     let bridge: VideoBridge
 
@@ -673,6 +701,8 @@ final class VideoHostView: NSView {
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
         guard let window else { return }
+        window.identifier = MirrorWindowRegistry.identifier
+        MirrorWindowRegistry.window = window
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: window, queue: .main) { [weak self] _ in
             self?.setVideoGravity(.resizeAspect)

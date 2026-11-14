@@ -11,6 +11,7 @@ enum AppVersion {
     }
 }
 
+#if !APP_STORE
 @MainActor
 final class UpdateChecker: ObservableObject {
     enum Phase: Equatable {
@@ -79,3 +80,4 @@ private struct LatestRelease: Decodable {
         case htmlURL = "html_url"
     }
 }
+#endif

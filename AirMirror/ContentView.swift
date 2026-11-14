@@ -9,7 +9,9 @@ struct ContentView: View {
     @State private var nameDraft: String = ""
     @State private var showSettings = false
     @State private var showAdvanced = false
+    #if !APP_STORE
     @StateObject private var updates = UpdateChecker()
+    #endif
 
     init() {
         _discovery = ObservedObject(wrappedValue: AppState.shared.discovery)
@@ -106,15 +108,21 @@ struct ContentView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
             }
-            Button {
-                presentSettings()
-            } label: {
-                Label("设置", systemImage: "gearshape")
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.72))
+            HStack(spacing: 24) {
+                auxiliaryMenu(compact: false)
+                Button {
+                    presentSettings()
+                } label: {
+                    Label("设置", systemImage: "gearshape")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+                .buttonStyle(SoftButtonStyle())
             }
-            .buttonStyle(SoftButtonStyle())
-            .padding(.bottom, 22)
+            .padding(.bottom, 14)
+            RepositoryFooter()
+                .padding(.horizontal, 20)
+                .padding(.bottom, 18)
         }
     }
 
@@ -130,6 +138,7 @@ struct ContentView: View {
                         .background(.black.opacity(0.45), in: Capsule())
                 }
                 Spacer()
+                auxiliaryMenu(compact: true)
                 Button {
                     presentSettings()
                 } label: {
@@ -150,6 +159,26 @@ struct ContentView: View {
         Color.black.opacity(0.55)
             .ignoresSafeArea()
             .onTapGesture { dismissSettings() }
+    }
+
+    private func auxiliaryMenu(compact: Bool) -> some View {
+        Menu {
+            Button("窗贴 · 截图与粘贴…") { WindowPasteWindowController.shared.show() }
+        } label: {
+            if compact {
+                Image(systemName: "square.grid.2x2")
+                    .foregroundStyle(.white).padding(8)
+                    .background(.black.opacity(0.45), in: Circle())
+            } else {
+                Label("辅助功能", systemImage: "square.grid.2x2")
+                    .font(.callout.weight(.medium)).foregroundStyle(.white.opacity(0.72))
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel("辅助功能")
+        .help("辅助功能：窗贴截图与粘贴")
     }
 
     private var settingsPanel: some View {
@@ -381,6 +410,19 @@ struct ContentView: View {
 
             advancedSettings
 
+            VStack(alignment: .leading, spacing: 8) {
+                Text("辅助功能").font(.caption).foregroundStyle(.white.opacity(0.5))
+                Button {
+                    dismissSettings()
+                    WindowPasteWindowController.shared.show()
+                } label: {
+                    Label("窗贴 · 截图与粘贴", systemImage: "camera.viewfinder")
+                }
+                Text("在独立窗口中选择截图目标和快捷键，投屏继续运行。")
+                    .font(.caption).foregroundStyle(.white.opacity(0.45))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             versionRow
 
             if let error = appState.lastError, appState.status == .failed || appState.status == .missingEngine {
@@ -389,6 +431,7 @@ struct ContentView: View {
                     .foregroundStyle(.red)
                     .textSelection(.enabled)
             }
+            RepositoryFooter()
         }
         .padding(20)
         .background(
@@ -539,11 +582,14 @@ struct ContentView: View {
                 Text("版本 \(AppVersion.current)")
                     .foregroundStyle(.white.opacity(0.7))
                 Spacer()
+                #if !APP_STORE
                 Button(updates.phase == .checking ? "正在检查…" : "检查更新") {
                     updates.check()
                 }
                 .disabled(updates.phase == .checking)
+                #endif
             }
+            #if !APP_STORE
             switch updates.phase {
             case .idle, .checking:
                 EmptyView()
@@ -566,6 +612,7 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.45))
             }
+            #endif
         }
     }
 
