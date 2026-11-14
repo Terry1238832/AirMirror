@@ -311,7 +311,7 @@ struct ContentView: View {
             instructionRow(number: "2", title: "按系统版本选择图标") {
                 ScreenMirroringButtons()
             }
-            instructionRow(number: "3", title: "选择「\(displayName)」") {
+            instructionRow(number: "3", title: "选择「\(appState.receiverName)」") {
                 instructionText("设备需要与 Mac 连接到可以互相访问的局域网。显示名可以在设置里改。")
             }
         }
@@ -356,11 +356,6 @@ struct ContentView: View {
             }
             Spacer(minLength: 0)
         }
-    }
-
-    private var displayName: String {
-        let trimmed = appState.receiverName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "镜投" : trimmed
     }
 
 }

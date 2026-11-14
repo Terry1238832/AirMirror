@@ -42,6 +42,7 @@ python3 scripts/validate_store_app.py /absolute/path/to/exported/AirMirror.app -
 
 ```sh
 ./scripts/test_receiver_restart.sh
+./scripts/test_receiver_name.sh
 ./scripts/test_video_bridge.sh
 ./scripts/test_windowpaste.sh
 ./scripts/test_store_channel.sh

@@ -145,7 +145,7 @@ struct MirrorSettingsView: View {
                 Text("显示名")
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(width: 72, alignment: .leading)
-                TextField("镜投", text: $nameDraft)
+                TextField(AppState.defaultReceiverName, text: $nameDraft)
                     .textFieldStyle(.roundedBorder)
                     .focused($nameIsFocused)
                     .onSubmit { commitName() }
@@ -258,8 +258,7 @@ struct MirrorSettingsView: View {
     }
 
     private func commitName() {
-        let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        appState.receiverName = trimmed.isEmpty ? "镜投" : trimmed
+        appState.setReceiverName(nameDraft)
         nameDraft = appState.receiverName
     }
 }

@@ -8,7 +8,7 @@ import Security
 final class AppState: ObservableObject {
     static let shared = AppState()
 
-    private static let nameKey = "receiverName"
+    static var defaultReceiverName: String { ReceiverNamePreference.deviceName }
     private static let pinKey = "requirePin"
     private static let macKey = "deviceMAC"
     private static let qualityKey = "streamQuality"
@@ -50,13 +50,7 @@ final class AppState: ObservableObject {
     @Published private(set) var wiredPermissionDenied = false
     @Published private(set) var wiredAudioMessage: String?
 
-    @Published var receiverName: String {
-        didSet {
-            guard receiverName != oldValue else { return }
-            UserDefaults.standard.set(receiverName, forKey: Self.nameKey)
-            scheduleRestart()
-        }
-    }
+    @Published private(set) var receiverName: String
     @Published var requirePin: Bool {
         didSet {
             UserDefaults.standard.set(requirePin, forKey: Self.pinKey)
@@ -117,8 +111,7 @@ final class AppState: ObservableObject {
         connectionMode = ConnectionMode(rawValue: defaults.string(forKey: Self.connectionModeKey) ?? "") ?? .wireless
         selectedWiredDeviceID = defaults.string(forKey: Self.wiredDeviceKey)
         wiredAudioEnabled = defaults.bool(forKey: Self.wiredAudioKey)
-        let storedName = defaults.string(forKey: Self.nameKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        receiverName = (storedName?.isEmpty == false) ? storedName! : "镜投"
+        receiverName = ReceiverNamePreference.loadOverride(from: defaults) ?? Self.defaultReceiverName
         requirePin = defaults.bool(forKey: Self.pinKey)
         if let storedQuality = defaults.string(forKey: Self.qualityKey),
            let quality = StreamQuality(rawValue: storedQuality) {
@@ -202,7 +195,7 @@ final class AppState: ObservableObject {
         }
 
         stoppingIntentionally = false
-        let name = sanitizedName
+        let name = receiverName
         status = .starting
         lastError = nil
         pinCode = nil
@@ -317,9 +310,11 @@ final class AppState: ObservableObject {
         }
     }
 
-    private var sanitizedName: String {
-        let trimmed = receiverName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "镜投" : trimmed
+    func setReceiverName(_ proposed: String) {
+        let name = ReceiverNamePreference.save(proposed, deviceName: Self.defaultReceiverName, to: .standard)
+        guard receiverName != name else { return }
+        receiverName = name
+        scheduleRestart()
     }
 
     private func scheduleRestart() {
