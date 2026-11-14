@@ -36,11 +36,12 @@
 python3 scripts/validate_store_app.py /absolute/path/to/exported/AirMirror.app --distribution
 ```
 
-基础验证器检查沙盒权限、helper 继承、统一签名团队、Hardened Runtime、全部打包 Mach-O 的 arm64 架构及最低系统、运行时闭包、资源和渠道代码。`--distribution` 额外检查分发签名类别和描述文件存在；它不能替代 Apple 的证书、描述文件、上传及审核验证。
+基础验证器还检查 14 份实际打包的语言资源、权限用途说明及应用图标。基础验证器检查沙盒权限、helper 继承、统一签名团队、Hardened Runtime、全部打包 Mach-O 的 arm64 架构及最低系统、运行时闭包、资源和渠道代码。`--distribution` 额外检查分发签名类别和描述文件存在；它不能替代 Apple 的证书、描述文件、上传及审核验证。
 
 ## 回归与验证边界
 
 ```sh
+python3 scripts/validate_localizations.py
 ./scripts/test_receiver_restart.sh
 ./scripts/test_receiver_name.sh
 ./scripts/test_video_bridge.sh

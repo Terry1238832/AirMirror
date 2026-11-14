@@ -1,0 +1,1 @@
+mirror,screen,wireless,USB,presentation,capture,clipboard,window,display,teaching

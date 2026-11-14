@@ -12,7 +12,7 @@ final class MirrorSettingsWindowController: NSObject, NSWindowDelegate {
         if window == nil {
             let hosting = NSHostingController(rootView: MirrorSettingsView().environmentObject(AppState.shared))
             let window = NSWindow(contentViewController: hosting)
-            window.title = "设置 · 镜投"
+            window.title = L10n.tr("设置 · 镜投")
             window.identifier = Self.identifier
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             let availableHeight = (NSScreen.main?.visibleFrame.height ?? 820) - 100

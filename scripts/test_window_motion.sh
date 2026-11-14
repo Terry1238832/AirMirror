@@ -14,6 +14,7 @@ xcrun swiftc \
   -parse-as-library \
   -target "$(uname -m)-apple-macos14.0" \
   -module-cache-path "$ROOT/build/ModuleCache" \
+  "$ROOT/AirMirror/AppLanguage.swift" "$ROOT/AirMirror/L10n.swift" "$ROOT/AirMirror/AppBrand.swift" \
   "$TEST_BUILD/window_motion_regression.generated.swift" \
   -o "$TEST_BUILD/window_motion_regression"
 

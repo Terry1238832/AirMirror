@@ -8,7 +8,7 @@ import Security
 final class AppState: ObservableObject {
     static let shared = AppState()
 
-    static var defaultReceiverName: String { ReceiverNamePreference.deviceName }
+    static var defaultReceiverName: String { ReceiverNamePreference.defaultName }
     private static let pinKey = "requirePin"
     private static let macKey = "deviceMAC"
     private static let qualityKey = "streamQuality"
@@ -150,17 +150,29 @@ final class AppState: ObservableObject {
                 self.status = .advertising
             }
             .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .appLanguageDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let name = ReceiverNamePreference.loadOverride(from: .standard) ?? Self.defaultReceiverName
+                if self.receiverName != name {
+                    self.receiverName = name
+                    self.scheduleRestart()
+                }
+                self.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
 
     var statusText: String {
         switch status {
-        case .idle: return connectionMode == .usb ? "有线投屏已停止" : "尚未开始广播"
-        case .starting: return connectionMode == .usb ? "正在连接 USB 设备…" : "正在启动接收端…"
-        case .waitingForDevice: return "等待 USB 连接的 iPhone / iPad"
-        case .advertising: return discovery.isVisibleOnLan ? "已可被 iPhone / iPad 搜索到" : "正在局域网广播"
-        case .connected: return connectionMode == .usb ? "正在通过 USB 接收投屏" : "正在接收投屏"
-        case .missingEngine: return "还没有安装投屏引擎"
-        case .failed: return lastError ?? "启动失败"
+        case .idle: return connectionMode == .usb ? L10n.tr("有线投屏已停止") : L10n.tr("尚未开始广播")
+        case .starting: return connectionMode == .usb ? L10n.tr("正在连接 USB 设备…") : L10n.tr("正在启动接收端…")
+        case .waitingForDevice: return L10n.tr("等待 USB 连接的 iPhone / iPad")
+        case .advertising: return discovery.isVisibleOnLan ? L10n.tr("已可被 iPhone / iPad 搜索到") : L10n.tr("正在局域网广播")
+        case .connected: return connectionMode == .usb ? L10n.tr("正在通过 USB 接收投屏") : L10n.tr("正在接收投屏")
+        case .missingEngine: return L10n.tr("还没有安装投屏引擎")
+        case .failed: return lastError ?? L10n.tr("启动失败")
         }
     }
 
@@ -299,7 +311,7 @@ final class AppState: ObservableObject {
         case .permissionDenied:
             wiredPermissionDenied = true
             status = .failed
-            lastError = "请在系统设置的「隐私与安全性 → 相机」中允许镜投读取 USB 设备画面。"
+            lastError = L10n.tr("请在系统设置的「隐私与安全性 → 相机」中允许镜投读取 USB 设备画面。")
         case .failed(let message):
             prepareWiredVideoSession()
             connectedClient = nil
@@ -311,7 +323,7 @@ final class AppState: ObservableObject {
     }
 
     func setReceiverName(_ proposed: String) {
-        let name = ReceiverNamePreference.save(proposed, deviceName: Self.defaultReceiverName, to: .standard)
+        let name = ReceiverNamePreference.save(proposed, defaultName: Self.defaultReceiverName, to: .standard)
         guard receiverName != name else { return }
         receiverName = name
         scheduleRestart()
@@ -377,7 +389,7 @@ final class AppState: ObservableObject {
             }
             guard let retryDelay = restartBudget.retryDelayAfterExit() else {
                 status = .failed
-                lastError = "接收端反复退出，请检查投屏引擎"
+                lastError = L10n.tr("接收端反复退出，请检查投屏引擎")
                 return
             }
             lastError = nil

@@ -14,7 +14,7 @@ final class WindowPasteWindowController: NSObject, NSWindowDelegate {
         if window == nil {
             let hosting = NSHostingController(rootView: WindowPasteView().environmentObject(state))
             let window = NSWindow(contentViewController: hosting)
-            window.title = "窗贴 · 镜投辅助功能"
+            window.title = L10n.tr("窗贴 · 镜投辅助功能")
             window.identifier = Self.identifier
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             let height = min(760, (NSScreen.main?.visibleFrame.height ?? 860) - 90)
@@ -45,16 +45,17 @@ final class WindowPasteWindowController: NSObject, NSWindowDelegate {
 }
 
 struct AuxiliaryCommands: Commands {
+    @ObservedObject private var language = LanguagePreferences.shared
     @Environment(\.openWindow) private var openWindow
     @ObservedObject private var state = WindowPasteState.shared
 
     var body: some Commands {
-        CommandMenu("辅助功能") {
-            Button("窗贴 · 截图与粘贴…") { WindowPasteWindowController.shared.show() }
-            Button("显示投屏窗口") { openWindow(id: "mirror") }
+        CommandMenu(L10n.tr("辅助功能")) {
+            Button(L10n.tr("窗贴 · 截图与粘贴…")) { WindowPasteWindowController.shared.show() }
+            Button(L10n.tr("显示投屏窗口")) { openWindow(id: "mirror") }
             Divider()
-            Toggle("启用窗贴快捷键", isOn: Binding(get: { state.isEnabled }, set: { state.setEnabled($0) }))
-            Button("复制目标窗口截图") { state.copyScreenshot() }
+            Toggle(L10n.tr("启用窗贴快捷键"), isOn: Binding(get: { state.isEnabled }, set: { state.setEnabled($0) }))
+            Button(L10n.tr("复制目标窗口截图")) { state.copyScreenshot() }
                 .disabled(state.isBusy)
         }
     }

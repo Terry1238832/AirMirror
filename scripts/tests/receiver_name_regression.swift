@@ -6,6 +6,18 @@ import Foundation
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         func reset() { defaults.removePersistentDomain(forName: suite) }
+        let automatic = ReceiverNamePreference.defaultName(deviceName: "我的 Mac", preferredLanguages: ["zh-Hans", "en"])
+        precondition(automatic == "镜投 - 我的 Mac")
+        precondition(ReceiverNamePreference.defaultName(deviceName: "My Mac", preferredLanguages: ["en-CA", "zh-Hans"]) == "AirMirror - My Mac")
+        precondition(ReceiverNamePreference.defaultName(deviceName: " 我的 Mac ", preferredLanguages: ["zh-Hant"]) == "鏡投 - 我的 Mac")
+        precondition(ReceiverNamePreference.defaultName(deviceName: "  ", preferredLanguages: []) == "AirMirror - Mac")
+        precondition(AppLanguage.resolve(preferredLanguages: ["zh_TW"]) == .traditionalChinese)
+        precondition(AppLanguage.resolve(preferredLanguages: ["zh-HK"]) == .traditionalChinese)
+        precondition(AppLanguage.resolve(preferredLanguages: ["zh-CN"]) == .simplifiedChinese)
+        precondition(AppLanguage.resolve(preferredLanguages: ["pt-PT"]) == .portuguese)
+        precondition(AppLanguage.resolve(preferredLanguages: ["nl-NL", "fr-CA"]) == .french)
+        precondition(AppLanguage.resolve(preferredLanguages: ["xx"]) == .english)
+        precondition(AppLanguage.arabic.isRightToLeft && !AppLanguage.hindi.isRightToLeft)
 
         precondition(ReceiverNamePreference.loadOverride(from: defaults) == nil)
         defaults.set("镜投", forKey: "receiverName")
@@ -23,19 +35,19 @@ import Foundation
                      "An explicitly customized brand name in the new schema must survive")
         precondition(defaults.object(forKey: "receiverName") == nil)
 
-        precondition(ReceiverNamePreference.save("  ", deviceName: "我的 Mac", to: defaults) == "我的 Mac")
+        precondition(ReceiverNamePreference.save("  ", defaultName: automatic, to: defaults) == automatic)
         precondition(ReceiverNamePreference.loadOverride(from: defaults) == nil)
         precondition(defaults.object(forKey: "receiverNameOverride") == nil)
-        precondition(ReceiverNamePreference.save(" 我的 Mac ", deviceName: "我的 Mac", to: defaults) == "我的 Mac")
+        precondition(ReceiverNamePreference.save(" \(automatic) ", defaultName: automatic, to: defaults) == automatic)
         precondition(ReceiverNamePreference.loadOverride(from: defaults) == nil)
-        precondition(ReceiverNamePreference.save("工作室", deviceName: "我的 Mac", to: defaults) == "工作室")
+        precondition(ReceiverNamePreference.save("工作室", defaultName: automatic, to: defaults) == "工作室")
         precondition(ReceiverNamePreference.loadOverride(from: defaults) == "工作室")
 
         reset()
         defaults.set("\n ", forKey: "receiverNameOverride")
         precondition(ReceiverNamePreference.loadOverride(from: defaults) == nil)
-        precondition(ReceiverNamePreference.save("", deviceName: " ", to: defaults) == "Mac")
+        precondition(ReceiverNamePreference.save("", defaultName: " ", to: defaults) == ReceiverNamePreference.defaultName)
         precondition(!ReceiverNamePreference.deviceName.isEmpty)
-        print("PASS: automatic device naming, legacy migration, custom-name preservation and reset")
+        print("PASS: Chinese/English branded naming, legacy migration, custom-name preservation and reset")
     }
 }

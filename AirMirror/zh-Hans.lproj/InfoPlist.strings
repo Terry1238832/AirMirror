@@ -1,0 +1,6 @@
+"CFBundleDisplayName" = "镜投";
+"CFBundleName" = "镜投";
+"NSLocalNetworkUsageDescription" = "镜投需要访问局域网，才能被 iPhone、iPad 用系统自带的「屏幕镜像」搜到并连接。";
+"NSCameraUsageDescription" = "镜投需要通过 macOS 的相机采集接口，读取 USB 连接的 iPhone 或 iPad 屏幕画面。";
+"NSScreenCaptureUsageDescription" = "镜投的「窗贴」辅助功能需要屏幕录制权限，才能预览、截取其他应用的指定窗口并复制截图。";
+"NSMicrophoneUsageDescription" = "开启「播放设备声音」后，镜投需要音频采集权限来播放 USB 连接的 iPhone 或 iPad 的声音。";

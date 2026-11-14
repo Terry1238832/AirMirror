@@ -14,13 +14,13 @@ struct WindowPasteTargetWindow: Identifiable, Equatable, Hashable {
         let size = "\(width)×\(height)"
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            return "未命名窗口  \(size)"
+            return L10n.tr("未命名窗口  %1$@", String(describing: size))
         }
         return "\(trimmed)  \(size)"
     }
 
     var shortName: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "未命名窗口" : trimmed
+        return trimmed.isEmpty ? L10n.tr("未命名窗口") : trimmed
     }
 }

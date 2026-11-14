@@ -8,6 +8,7 @@ if [[ "$MODE" != "--local" && "$MODE" != "--archive" ]]; then
   print -u2 "usage: scripts/build_app_store.sh [--local|--archive]"
   exit 2
 fi
+swift "$ROOT/scripts/generate_icon.swift" "$ROOT/AirMirror/Assets.xcassets/AppIcon.appiconset"
 python3 "$ROOT/scripts/build_store_engine.py" --if-needed
 
 ARGS=(-project "$ROOT/AirMirror.xcodeproj" -scheme AirMirrorStore -configuration AppStore

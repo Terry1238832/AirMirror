@@ -40,6 +40,6 @@ enum NetworkInfo {
     }
 
     static func primaryAddress() -> String {
-        ipv4Addresses().first ?? "未连接局域网"
+        ipv4Addresses().first ?? L10n.tr("未连接局域网")
     }
 }

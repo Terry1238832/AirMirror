@@ -15,9 +15,9 @@ enum VideoBridgeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .socketPathTooLong:
-            return "投屏通道路径太长"
+            return L10n.tr("投屏通道路径太长")
         case .listenFailed:
-            return "无法建立投屏画面通道"
+            return L10n.tr("无法建立投屏画面通道")
         }
     }
 }
@@ -874,7 +874,7 @@ struct WindowAspectLock: NSViewRepresentable {
             window.backgroundColor = .black
             window.titlebarAppearsTransparent = true
             window.appearance = NSAppearance(named: .darkAqua)
-            window.title = "镜投"
+            window.title = AppBrand.name
             coordinator.styledWindow = true
         }
         if window.delegate !== coordinator.delegate {

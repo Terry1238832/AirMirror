@@ -9,6 +9,7 @@ xcrun swiftc \
   -parse-as-library \
   -target "$(uname -m)-apple-macos14.0" \
   -module-cache-path "$ROOT/build/ModuleCache" \
+  "$ROOT/AirMirror/AppLanguage.swift" "$ROOT/AirMirror/L10n.swift" "$ROOT/AirMirror/AppBrand.swift" \
   "$ROOT/AirMirror/VideoBridge.swift" \
   "$ROOT/scripts/tests/video_bridge_regression.swift" \
   -o "$TEST_BUILD/video_bridge_regression"

@@ -1,0 +1,26 @@
+AirMirror is a macOS utility for receiving the screen of an iPhone or iPad. An Apple silicon Mac running macOS 14+ and a physical iPhone/iPad are required to test the core function. No account, login or purchase within the app is required. Please use a normal, unprotected device screen for testing.
+
+First launch: choose a language (System Default is initially selected), then continue. The receiver display name is “AirMirror - <Mac computer name>” in English, “镜投 - <Mac computer name>” in Simplified Chinese, or “鏡投 - <Mac computer name>” in Traditional Chinese. The name can be customized in Settings.
+
+Wireless test:
+1. Choose Wireless in the main window. Allow Local Network access if macOS asks.
+2. Put the iPhone/iPad and Mac on a local network where they can reach each other. A guest network or device-isolated network may prevent discovery.
+3. On iPhone/iPad, open Control Center > Screen Mirroring (the overlapping rectangles) and choose the receiver name shown above. The “?” button has illustrated steps.
+4. Maximum quality is the default; the negotiated resolution depends on the sender.
+
+USB test, including when the review network isolates devices:
+1. Connect the iPhone/iPad with a data-capable USB-C or Lightning cable.
+2. Unlock the device, trust this Mac, and choose USB in AirMirror.
+3. Allow Camera access on macOS. USB device-screen capture is delivered through the public CoreMediaIO/AVFoundation camera capture interfaces. This permission is used for the connected device screen.
+4. Device audio is off by default. Enabling Play Device Audio requests Microphone access for the audio stream carried by the cable. Denying audio permission does not prevent video.
+
+WindowPaste test:
+1. While mirroring, choose Tools > WindowPaste. It opens a separate window.
+2. Copy a screenshot with the button or configured shortcut, then paste it manually into another app with Command-V.
+3. Capturing other application windows requires Screen Recording permission. The received device frames are available through the local mirroring pipeline; older macOS capture fallback may also require Screen Recording permission.
+4. Closing the WindowPaste window leaves mirroring running. If its shortcut remains enabled, its shortcut service remains active until disabled or the application is quit.
+
+Store-specific behavior:
+The Mac App Store build is sandboxed and self-contained. Its bundled wireless helper inherits the app sandbox and ends when the application quits. There is no external updater, repository button, Accessibility permission request, simulated paste, automatic Return, downloaded executable code or Homebrew dependency. Screenshots are copied, not automatically pasted or sent. Privacy and open-source notices are available in the app.
+
+The app does not record protected streaming services, bypass protected-content playback restrictions, offer remote touch control, or save screen-recording files. It has no developer-operated video relay, account backend, advertising or analytics SDK.

@@ -9,17 +9,17 @@ enum StreamQuality: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .fluent: return "流畅"
-        case .balanced: return "平衡"
-        case .sharp: return "高清"
+        case .fluent: return L10n.tr("流畅")
+        case .balanced: return L10n.tr("平衡")
+        case .sharp: return L10n.tr("高清")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .fluent: return "720p，延迟最低，适合跟手操作"
-        case .balanced: return "1080p，画质和延迟折中"
-        case .sharp: return "最高画质，按设备能力协商分辨率"
+        case .fluent: return L10n.tr("720p，延迟最低，适合跟手操作")
+        case .balanced: return L10n.tr("1080p，画质和延迟折中")
+        case .sharp: return L10n.tr("最高画质，按设备能力协商分辨率")
         }
     }
 

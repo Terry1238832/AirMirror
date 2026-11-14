@@ -10,10 +10,10 @@ enum WindowPasteCaptureError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .permissionDenied: return "请在权限设置中允许镜投录制屏幕，才能截取其他应用窗口。"
-        case .appNotRunning(let name): return "没有找到 \(name)，请先打开该软件。"
-        case .windowNotFound(let name): return "没有找到「\(name)」。请保持窗口未最小化，刷新后重新选择。"
-        case .noVideo: return "还没有可截取的投屏画面，请先连接 iPhone / iPad。"
+        case .permissionDenied: return L10n.tr("请在权限设置中允许镜投录制屏幕，才能截取其他应用窗口。")
+        case .appNotRunning(let name): return L10n.tr("没有找到 %1$@，请先打开该软件。", String(describing: name))
+        case .windowNotFound(let name): return L10n.tr("没有找到「%1$@」。请保持窗口未最小化，刷新后重新选择。", String(describing: name))
+        case .noVideo: return L10n.tr("还没有可截取的投屏画面，请先连接 iPhone / iPad。")
         }
     }
 }
@@ -30,7 +30,7 @@ enum WindowPasteCaptureService {
             guard let window = projectionWindow else { return [] }
             let size = AppState.shared.video.videoSize
             let fallback = window.contentLayoutRect.size
-            return [.init(windowID: UInt32(window.windowNumber), title: "镜投投屏画面",
+            return [.init(windowID: UInt32(window.windowNumber), title: L10n.tr("镜投投屏画面"),
                           width: Int(size.width > 1 ? size.width : fallback.width),
                           height: Int(size.height > 1 ? size.height : fallback.height), isOnScreen: true)]
         }
@@ -43,14 +43,14 @@ enum WindowPasteCaptureService {
 
     static func capture(target: WindowPasteTargetApp, preferredWindowID: UInt32? = nil, preferredTitle: String? = nil, preview: Bool = false) async throws -> NSImage {
         if target.isMirror {
-            guard let window = projectionWindow else { throw WindowPasteCaptureError.windowNotFound("镜投投屏窗口") }
+            guard let window = projectionWindow else { throw WindowPasteCaptureError.windowNotFound(L10n.tr("镜投投屏窗口")) }
             guard AppState.shared.video.hasVideo else { throw WindowPasteCaptureError.noVideo }
             if let image = AppState.shared.video.copyCurrentFrame() { return image }
             // macOS 14.0–14.3 has no decoded-frame snapshot API; retain window capture there.
             guard WindowPastePermissionService.hasScreenRecording else { throw WindowPasteCaptureError.permissionDenied }
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             guard let source = content.windows.first(where: { $0.windowID == UInt32(window.windowNumber) }) else {
-                throw WindowPasteCaptureError.windowNotFound("镜投投屏窗口")
+                throw WindowPasteCaptureError.windowNotFound(L10n.tr("镜投投屏窗口"))
             }
             return try await capture(window: source, preview: preview)
         }

@@ -1,0 +1,6 @@
+"CFBundleDisplayName" = "AirMirror";
+"CFBundleName" = "AirMirror";
+"NSLocalNetworkUsageDescription" = "AirMirror deve accedere alla LAN prima di poter essere rilevato e connesso da iPhone e iPad utilizzando lo \"Screen Mirroring\" integrato nel sistema.";
+"NSCameraUsageDescription" = "AirMirror deve leggere lo schermo dell'iPhone o dell'iPad collegato tramite USB tramite l'interfaccia di acquisizione della fotocamera di macOS.";
+"NSScreenCaptureUsageDescription" = "La funzione ausiliaria \"WindowPaste\" di AirMirror richiede le autorizzazioni di registrazione dello schermo per visualizzare in anteprima, acquisire finestre specifiche di altre applicazioni e copiare schermate.";
+"NSMicrophoneUsageDescription" = "Dopo aver attivato \"Riproduci audio dispositivo\", AirMirror richiede l'autorizzazione alla raccolta audio per riprodurre l'audio dell'iPhone o iPad collegato tramite USB.";

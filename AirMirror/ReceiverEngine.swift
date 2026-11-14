@@ -252,12 +252,12 @@ enum EngineError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingRuntime:
-            return "应用内的无线接收组件不完整，请重新安装镜投。"
+            return L10n.tr("应用内的无线接收组件不完整，请重新安装镜投。")
         case .missingBinary:
             #if APP_STORE
-            return "应用内的无线接收引擎缺失，请重新安装镜投。"
+            return L10n.tr("应用内的无线接收引擎缺失，请重新安装镜投。")
             #else
-            return "还没有投屏引擎。请先运行 AirMirror/build.sh 完成安装。"
+            return L10n.tr("还没有投屏引擎。请先运行 AirMirror/build.sh 完成安装。")
             #endif
         }
     }

@@ -157,7 +157,7 @@ final class WiredCaptureEngine: NSObject {
         attemptedDeviceID = nil
         listedDevices = []
         guard enableScreenDevices() else {
-            emit(.failed("无法启用 USB 屏幕接收，请重新打开镜投后再试。"), token: token)
+            emit(.failed(L10n.tr("无法启用 USB 屏幕接收，请重新打开镜投后再试。")), token: token)
             return
         }
         discovery = AVCaptureDevice.DiscoverySession(
@@ -291,12 +291,12 @@ final class WiredCaptureEngine: NSObject {
             sessionQueue.asyncAfter(deadline: .now() + 12) { [weak self, weak capture] in
                 guard let self, let capture, self.isCurrent(token), self.session === capture,
                       !self.receivedFrame else { return }
-                self.failCapture("还没有收到 iPad 画面。请解锁设备并信任这台 Mac，确认使用支持数据传输的线缆，然后点刷新重试。", token: token)
+                self.failCapture(L10n.tr("还没有收到 iPad 画面。请解锁设备并信任这台 Mac，确认使用支持数据传输的线缆，然后点刷新重试。"), token: token)
             }
         } catch {
             guard isCurrent(token) else { return }
             clearCapture()
-            emit(.failed("无法接收 USB 画面：\(error.localizedDescription)"), token: token)
+            emit(.failed(L10n.tr("无法接收 USB 画面：%1$@", String(describing: error.localizedDescription))), token: token)
         }
     }
 
@@ -314,14 +314,14 @@ final class WiredCaptureEngine: NSObject {
                     if allowed {
                         self.addAudioOutput(to: session, token: token)
                     } else {
-                        self.emit(.audioUnavailable("未允许音频输入，画面仍可继续投屏。可在系统设置的「隐私与安全性 → 麦克风」中允许镜投。"), token: token)
+                        self.emit(.audioUnavailable(L10n.tr("未允许音频输入，画面仍可继续投屏。可在系统设置的「隐私与安全性 → 麦克风」中允许镜投。")), token: token)
                     }
                 }
             }
         case .denied, .restricted:
-            emit(.audioUnavailable("未允许音频输入，画面仍可继续投屏。可在系统设置的「隐私与安全性 → 麦克风」中允许镜投。"), token: token)
+            emit(.audioUnavailable(L10n.tr("未允许音频输入，画面仍可继续投屏。可在系统设置的「隐私与安全性 → 麦克风」中允许镜投。")), token: token)
         @unknown default:
-            emit(.audioUnavailable("暂时无法启用 USB 声音，画面仍可继续投屏。"), token: token)
+            emit(.audioUnavailable(L10n.tr("暂时无法启用 USB 声音，画面仍可继续投屏。")), token: token)
         }
     }
 
@@ -332,7 +332,7 @@ final class WiredCaptureEngine: NSObject {
         output.outputDeviceUniqueID = nil
         output.volume = 1
         guard !ports.isEmpty, capture.canAddOutput(output) else {
-            emit(.audioUnavailable("这个 USB 设备没有提供可用的声音通道，画面仍可继续投屏。"), token: token)
+            emit(.audioUnavailable(L10n.tr("这个 USB 设备没有提供可用的声音通道，画面仍可继续投屏。")), token: token)
             return
         }
         capture.beginConfiguration()
@@ -343,7 +343,7 @@ final class WiredCaptureEngine: NSObject {
             audioOutput = output
         } else {
             capture.removeOutput(output)
-            emit(.audioUnavailable("无法连接 USB 声音通道，画面仍可继续投屏。"), token: token)
+            emit(.audioUnavailable(L10n.tr("无法连接 USB 声音通道，画面仍可继续投屏。")), token: token)
         }
         capture.commitConfiguration()
     }
@@ -360,23 +360,23 @@ final class WiredCaptureEngine: NSObject {
         let center = NotificationCenter.default
         sessionObservers.append(center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: capture, queue: nil) { [weak self, weak capture] notification in
             let message = (notification.userInfo?[AVCaptureSessionErrorKey] as? NSError)?.localizedDescription
-                ?? "设备连接中断，请重新插线后刷新。"
+                ?? L10n.tr("设备连接中断，请重新插线后刷新。")
             self?.sessionQueue.async { [weak self, weak capture] in
                 guard let self, let capture, self.session === capture, self.isCurrent(token) else { return }
                 // Audio is optional: retry the active capture once without its preview output.
                 if self.audioOutput != nil {
                     self.removeAudioOutput()
-                    self.emit(.audioUnavailable("USB 声音不可用：\(message)"), token: token)
+                    self.emit(.audioUnavailable(L10n.tr("USB 声音不可用：%1$@", String(describing: message))), token: token)
                     if !capture.isRunning { capture.startRunning() }
                 } else {
-                    self.failCapture("USB 投屏中断：\(message)", token: token)
+                    self.failCapture(L10n.tr("USB 投屏中断：%1$@", String(describing: message)), token: token)
                 }
             }
         })
         sessionObservers.append(center.addObserver(forName: AVCaptureSession.didStopRunningNotification, object: capture, queue: nil) { [weak self, weak capture] _ in
             self?.sessionQueue.asyncAfter(deadline: .now() + 0.5) { [weak self, weak capture] in
                 guard let self, let capture, self.session === capture, self.isCurrent(token), !capture.isRunning else { return }
-                self.failCapture("USB 投屏已停止。请保持 iPad 解锁，检查线缆后点刷新重试。", token: token)
+                self.failCapture(L10n.tr("USB 投屏已停止。请保持 iPad 解锁，检查线缆后点刷新重试。"), token: token)
             }
         })
     }
@@ -496,5 +496,5 @@ private final class WiredSampleForwarder: NSObject, AVCaptureVideoDataOutputSamp
 
 private enum WiredCaptureFailure: LocalizedError {
     case unsupported
-    var errorDescription: String? { "设备没有提供可用的 USB 屏幕通道。请解锁设备并在 iPad 上选择「信任」这台 Mac。" }
+    var errorDescription: String? { L10n.tr("设备没有提供可用的 USB 屏幕通道。请解锁设备并在 iPad 上选择「信任」这台 Mac。") }
 }

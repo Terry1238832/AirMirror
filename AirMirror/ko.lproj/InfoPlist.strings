@@ -1,0 +1,6 @@
+"CFBundleDisplayName" = "AirMirror";
+"CFBundleName" = "AirMirror";
+"NSLocalNetworkUsageDescription" = "AirMirror는 시스템에 내장된 \"스크린 미러링\"을 사용하여 iPhone 및 iPad에서 LAN을 찾고 연결하기 전에 LAN에 액세스해야 합니다.";
+"NSCameraUsageDescription" = "AirMirror는 macOS의 카메라 인식 인터페이스를 통해 USB로 연결된 iPhone 또는 iPad 화면을 읽어야 합니다.";
+"NSScreenCaptureUsageDescription" = "AirMirror의 \"WindowPaste\" 보조 기능을 사용하려면 다른 응용 프로그램의 지정된 창을 미리 보고, 캡처하고, 스크린샷을 복사하려면 화면 녹화 권한이 필요합니다.";
+"NSMicrophoneUsageDescription" = "AirMirror는 \"장치 사운드 재생\"을 켠 후 USB로 연결된 iPhone 또는 iPad의 사운드를 재생하려면 오디오 수집 권한이 필요합니다.";

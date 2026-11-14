@@ -11,6 +11,12 @@ enum ReceiverNamePreference {
             ?? "Mac"
     }
 
+    static var defaultName: String { defaultName(deviceName: deviceName, preferredLanguages: [L10n.language.rawValue]) }
+
+    static func defaultName(deviceName: String, preferredLanguages: [String]) -> String {
+        "\(AppBrand.name(for: preferredLanguages)) - \(clean(deviceName) ?? "Mac")"
+    }
+
     /// Migrate the former fixed default without discarding an existing custom name.
     static func loadOverride(from defaults: UserDefaults) -> String? {
         defer { defaults.removeObject(forKey: legacyKey) }
@@ -25,8 +31,8 @@ enum ReceiverNamePreference {
     }
 
     @discardableResult
-    static func save(_ proposed: String, deviceName: String, to defaults: UserDefaults) -> String {
-        let fallback = clean(deviceName) ?? "Mac"
+    static func save(_ proposed: String, defaultName: String, to defaults: UserDefaults) -> String {
+        let fallback = clean(defaultName) ?? Self.defaultName
         defaults.removeObject(forKey: legacyKey)
         guard let name = clean(proposed), name != fallback else {
             // Keep automatic naming automatic after the Mac is renamed or the app reopens.

@@ -46,13 +46,13 @@ struct WindowPasteHotKey: Equatable, Hashable {
 
     func problem() -> WindowPasteHotKeyRegisterResult? {
         if !hasStrongModifier && !Self.isFunctionKey(keyCode) {
-            return .invalid("请加上 Command、Control 或 Option，再按一个键")
+            return .invalid(L10n.tr("请加上 Command、Control 或 Option，再按一个键"))
         }
         if let message = Self.reservedMessage(for: self) {
             return .conflict(message)
         }
         if !isDefault, Self.systemHotKeys().contains(self) {
-            return .conflict("已与系统快捷键冲突，请换一个")
+            return .conflict(L10n.tr("已与系统快捷键冲突，请换一个"))
         }
         return nil
     }
@@ -101,33 +101,33 @@ struct WindowPasteHotKey: Equatable, Hashable {
 
         switch (code, mods) {
         case (kVK_Tab, cmd), (kVK_Tab, cmd | shift):
-            return "已与系统「切换应用」冲突"
+            return L10n.tr("已与系统「切换应用」冲突")
         case (kVK_Space, cmd):
-            return "已与 Spotlight 冲突"
+            return L10n.tr("已与 Spotlight 冲突")
         case (kVK_Space, cmd | shift):
-            return "已与系统「显示聚焦搜索窗口」冲突"
+            return L10n.tr("已与系统「显示聚焦搜索窗口」冲突")
         case (kVK_Escape, cmd | option):
-            return "已与系统「强制退出」冲突"
+            return L10n.tr("已与系统「强制退出」冲突")
         case (kVK_ANSI_Q, cmd | control), (kVK_ANSI_Q, control | cmd):
-            return "已与系统「锁定屏幕」冲突"
+            return L10n.tr("已与系统「锁定屏幕」冲突")
         case (kVK_ANSI_3, cmd | shift), (kVK_ANSI_4, cmd | shift), (kVK_ANSI_5, cmd | shift):
-            return "已与系统截图快捷键冲突"
+            return L10n.tr("已与系统截图快捷键冲突")
         case (kVK_ANSI_Q, cmd):
-            return "这个组合会退出应用，请换一个"
+            return L10n.tr("这个组合会退出应用，请换一个")
         case (kVK_ANSI_W, cmd):
-            return "这个组合会关闭窗口，请换一个"
+            return L10n.tr("这个组合会关闭窗口，请换一个")
         case (kVK_ANSI_H, cmd):
-            return "这个组合会隐藏窗口，请换一个"
+            return L10n.tr("这个组合会隐藏窗口，请换一个")
         case (kVK_ANSI_M, cmd):
-            return "这个组合会最小化窗口，请换一个"
+            return L10n.tr("这个组合会最小化窗口，请换一个")
         case (kVK_ANSI_Comma, cmd):
-            return "这个组合常用于打开设置，请换一个"
+            return L10n.tr("这个组合常用于打开设置，请换一个")
         case (kVK_ANSI_C, cmd), (kVK_ANSI_V, cmd), (kVK_ANSI_X, cmd), (kVK_ANSI_A, cmd):
-            return "这个组合是常用编辑快捷键，请换一个"
+            return L10n.tr("这个组合是常用编辑快捷键，请换一个")
         case (kVK_ANSI_Z, cmd), (kVK_ANSI_Z, cmd | shift):
-            return "这个组合是撤销 / 重做，请换一个"
+            return L10n.tr("这个组合是撤销 / 重做，请换一个")
         case (kVK_ANSI_S, cmd), (kVK_ANSI_N, cmd), (kVK_ANSI_O, cmd), (kVK_ANSI_P, cmd):
-            return "这个组合是常用系统快捷键，请换一个"
+            return L10n.tr("这个组合是常用系统快捷键，请换一个")
         default:
             return nil
         }
@@ -204,7 +204,7 @@ struct WindowPasteHotKey: Equatable, Hashable {
         case kVK_ANSI_Comma: return ","
         case kVK_ANSI_Period: return "."
         case kVK_ANSI_Slash: return "/"
-        case kVK_Space: return "空格"
+        case kVK_Space: return L10n.tr("空格")
         case kVK_Return: return "↩"
         case kVK_ANSI_KeypadEnter: return "↩"
         case kVK_Escape: return "Esc"
@@ -239,28 +239,28 @@ struct WindowPasteHotKey: Equatable, Hashable {
         case kVK_F18: return "F18"
         case kVK_F19: return "F19"
         case kVK_F20: return "F20"
-        case kVK_ANSI_Keypad0: return "小键盘 0"
-        case kVK_ANSI_Keypad1: return "小键盘 1"
-        case kVK_ANSI_Keypad2: return "小键盘 2"
-        case kVK_ANSI_Keypad3: return "小键盘 3"
-        case kVK_ANSI_Keypad4: return "小键盘 4"
-        case kVK_ANSI_Keypad5: return "小键盘 5"
-        case kVK_ANSI_Keypad6: return "小键盘 6"
-        case kVK_ANSI_Keypad7: return "小键盘 7"
-        case kVK_ANSI_Keypad8: return "小键盘 8"
-        case kVK_ANSI_Keypad9: return "小键盘 9"
-        case kVK_ANSI_KeypadDecimal: return "小键盘 ."
-        case kVK_ANSI_KeypadPlus: return "小键盘 +"
-        case kVK_ANSI_KeypadMinus: return "小键盘 -"
-        case kVK_ANSI_KeypadMultiply: return "小键盘 *"
-        case kVK_ANSI_KeypadDivide: return "小键盘 /"
-        case kVK_ANSI_KeypadEquals: return "小键盘 ="
+        case kVK_ANSI_Keypad0: return L10n.tr("小键盘 0")
+        case kVK_ANSI_Keypad1: return L10n.tr("小键盘 1")
+        case kVK_ANSI_Keypad2: return L10n.tr("小键盘 2")
+        case kVK_ANSI_Keypad3: return L10n.tr("小键盘 3")
+        case kVK_ANSI_Keypad4: return L10n.tr("小键盘 4")
+        case kVK_ANSI_Keypad5: return L10n.tr("小键盘 5")
+        case kVK_ANSI_Keypad6: return L10n.tr("小键盘 6")
+        case kVK_ANSI_Keypad7: return L10n.tr("小键盘 7")
+        case kVK_ANSI_Keypad8: return L10n.tr("小键盘 8")
+        case kVK_ANSI_Keypad9: return L10n.tr("小键盘 9")
+        case kVK_ANSI_KeypadDecimal: return L10n.tr("小键盘 .")
+        case kVK_ANSI_KeypadPlus: return L10n.tr("小键盘 +")
+        case kVK_ANSI_KeypadMinus: return L10n.tr("小键盘 -")
+        case kVK_ANSI_KeypadMultiply: return L10n.tr("小键盘 *")
+        case kVK_ANSI_KeypadDivide: return L10n.tr("小键盘 /")
+        case kVK_ANSI_KeypadEquals: return L10n.tr("小键盘 =")
         case kVK_ANSI_KeypadClear: return "Clear"
         case kVK_Help: return "Help"
-        case kVK_VolumeUp: return "音量加"
-        case kVK_VolumeDown: return "音量减"
-        case kVK_Mute: return "静音"
-        default: return "键\(keyCode)"
+        case kVK_VolumeUp: return L10n.tr("音量加")
+        case kVK_VolumeDown: return L10n.tr("音量减")
+        case kVK_Mute: return L10n.tr("静音")
+        default: return L10n.tr("键%1$@", String(describing: keyCode))
         }
     }
 }

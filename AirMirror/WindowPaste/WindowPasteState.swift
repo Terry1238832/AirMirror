@@ -126,28 +126,28 @@ final class WindowPasteState: ObservableObject {
                 try Task.checkCancellation()
                 guard self.captureGeneration == generation else { return }
                 guard WindowPasteClipboardService.copyImage(image) else {
-                    self.present("无法写入截图，请重试。", success: false)
+                    self.present(L10n.tr("无法写入截图，请重试。"), success: false)
                     return
                 }
                 #if APP_STORE
-                self.present("已复制截图，在目标应用中按 ⌘V 粘贴。", success: true)
+                self.present(L10n.tr("已复制截图，在目标应用中按 ⌘V 粘贴。"), success: true)
                 #else
                 guard !copyOnly, let destination, destination != ProcessInfo.processInfo.processIdentifier else {
-                    self.present("已复制截图，可在目标应用中粘贴。", success: true)
+                    self.present(L10n.tr("已复制截图，可在目标应用中粘贴。"), success: true)
                     return
                 }
                 guard WindowPastePermissionService.hasAccessibility else {
-                    self.present("已复制截图。开启辅助功能权限后可自动粘贴。", success: true)
+                    self.present(L10n.tr("已复制截图。开启辅助功能权限后可自动粘贴。"), success: true)
                     return
                 }
                 let outcome = await WindowPasteClipboardService.pasteWhenReady(into: destination, pressReturn: pressReturn)
                 guard !Task.isCancelled, self.captureGeneration == generation else { return }
                 switch outcome {
-                case .pasted: self.present("已粘贴截图", success: true)
-                case .returned: self.present("已粘贴截图并回车", success: true)
-                case .targetChanged: self.present("已复制截图，当前应用已切换，未自动粘贴。", success: true)
-                case .keysHeld: self.present("已复制截图，请松开修饰键后手动粘贴。", success: true)
-                case .unavailable: self.present("已复制截图，请检查辅助功能权限。", success: false)
+                case .pasted: self.present(L10n.tr("已粘贴截图"), success: true)
+                case .returned: self.present(L10n.tr("已粘贴截图并回车"), success: true)
+                case .targetChanged: self.present(L10n.tr("已复制截图，当前应用已切换，未自动粘贴。"), success: true)
+                case .keysHeld: self.present(L10n.tr("已复制截图，请松开修饰键后手动粘贴。"), success: true)
+                case .unavailable: self.present(L10n.tr("已复制截图，请检查辅助功能权限。"), success: false)
                 case .cancelled: break
                 }
                 self.refreshPermissions()
@@ -249,7 +249,7 @@ final class WindowPasteState: ObservableObject {
         do {
             if enabled { try SMAppService.mainApp.register() }
             else if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
-        } catch { present("登录启动设置失败：\(error.localizedDescription)", success: false) }
+        } catch { present(L10n.tr("登录启动设置失败：%1$@", String(describing: error.localizedDescription)), success: false) }
         refreshLaunchAtLogin()
     }
 
@@ -299,7 +299,7 @@ final class WindowPasteState: ObservableObject {
         switch WindowPasteHotKeyManager.shared.apply(hotKey) {
         case .registered: hotKeyWarning = nil
         case .invalid(let text), .conflict(let text), .failed(let text):
-            hotKeyWarning = text + "。如果独立版窗贴正在运行，请退出它或修改此处快捷键。"
+            hotKeyWarning = text + L10n.tr("。如果独立版窗贴正在运行，请退出它或修改此处快捷键。")
         }
     }
 

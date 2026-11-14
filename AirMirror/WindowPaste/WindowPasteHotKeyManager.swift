@@ -49,9 +49,9 @@ final class WindowPasteHotKeyManager {
         }
 
         if status == eventHotKeyExistsErr {
-            return .conflict("这个快捷键已被其他软件占用")
+            return .conflict(L10n.tr("这个快捷键已被其他软件占用"))
         }
-        return .failed("快捷键注册失败（\(status)）")
+        return .failed(L10n.tr("快捷键注册失败（%1$@）", String(describing: status)))
     }
 
     func suspend() {

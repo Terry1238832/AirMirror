@@ -57,7 +57,7 @@ struct HelpPanelAnchor: NSViewRepresentable {
                 let hosting = NSHostingView(rootView: root)
                 let panel = HelpPanel(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
                 panel.identifier = NSUserInterfaceItemIdentifier("com.liangyu.airmirror.help")
-                panel.title = "投屏教程"
+                panel.title = L10n.tr("投屏教程")
                 panel.isOpaque = false
                 panel.backgroundColor = .clear
                 panel.hasShadow = true
@@ -73,7 +73,8 @@ struct HelpPanelAnchor: NSViewRepresentable {
             }
             guard let panel else { return }
             let button = parent.convertToScreen(anchor.convert(anchor.bounds, to: nil))
-            let x = min(max(button.maxX - size.width, visible.minX + 16), visible.maxX - size.width - 16)
+            let proposedX = L10n.language.isRightToLeft ? button.minX : button.maxX - size.width
+            let x = min(max(proposedX, visible.minX + 16), visible.maxX - size.width - 16)
             let below = button.minY - 10 - size.height
             let proposedY = below >= visible.minY + 16 ? below : button.maxY + 10
             let y = min(max(proposedY, visible.minY + 16), visible.maxY - size.height - 16)

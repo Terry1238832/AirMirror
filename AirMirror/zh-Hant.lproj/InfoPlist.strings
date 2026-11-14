@@ -1,0 +1,6 @@
+"CFBundleDisplayName" = "鏡投";
+"CFBundleName" = "鏡投";
+"NSLocalNetworkUsageDescription" = "鏡投需要存取區域網，才能被 iPhone、iPad 用系統隨附的「螢幕鏡像」搜尋並連接。";
+"NSCameraUsageDescription" = "鏡投需要透過 macOS 的相機擷取接口，讀取 USB 連接的 iPhone 或 iPad 螢幕畫面。";
+"NSScreenCaptureUsageDescription" = "鏡投的「窗貼」輔助功能需要螢幕錄製權限，才能預覽、截取其他應用程式的指定視窗並複製截圖。";
+"NSMicrophoneUsageDescription" = "開啟「播放裝置聲音」後，鏡投需要音訊擷取權限來播放 USB 連接的 iPhone 或 iPad 的聲音。";

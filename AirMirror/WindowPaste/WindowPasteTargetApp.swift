@@ -13,6 +13,7 @@ struct WindowPasteTargetApp: Codable, Equatable, Identifiable, Hashable {
     static let mirror = WindowPasteTargetApp(name: "镜投（投屏画面）", bundleIdentifier: "com.liangyu.airmirror")
 
     var isMirror: Bool { bundleIdentifier == Self.mirror.bundleIdentifier }
+    var displayName: String { isMirror ? L10n.tr("镜投（投屏画面）") : name }
 
     static let letsView = WindowPasteTargetApp(
         name: "LetsView",

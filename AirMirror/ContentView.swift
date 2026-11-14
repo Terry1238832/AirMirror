@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject private var language = LanguagePreferences.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var appState: AppState
     @ObservedObject private var discovery: DiscoveryMonitor
@@ -33,6 +34,7 @@ struct ContentView: View {
             .animation(fadeAnimation, value: video.hasVideo)
         }
         .preferredColorScheme(.dark)
+        .onChange(of: language.selection) { _, _ in MirrorWindowRegistry.window?.title = AppBrand.name }
         .background(
             WindowAspectLock(
                 streaming: video.hasVideo,
@@ -94,7 +96,7 @@ struct ContentView: View {
                             Button {
                                 presentSettings()
                             } label: {
-                                Label("设置", systemImage: "gearshape")
+                                Label(L10n.tr("设置"), systemImage: "gearshape")
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(.white.opacity(0.58))
                             }
@@ -145,22 +147,22 @@ struct ContentView: View {
 
     private func auxiliaryMenu(compact: Bool) -> some View {
         Menu {
-            Button("窗贴 · 截图与粘贴…") { WindowPasteWindowController.shared.show() }
+            Button(L10n.tr("窗贴 · 截图与粘贴…")) { WindowPasteWindowController.shared.show() }
         } label: {
             if compact {
                 Image(systemName: "square.grid.2x2")
                     .foregroundStyle(.white).padding(8)
                     .background(.black.opacity(0.45), in: Circle())
             } else {
-                Label("辅助功能", systemImage: "square.grid.2x2")
+                Label(L10n.tr("辅助功能"), systemImage: "square.grid.2x2")
                     .font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.58))
             }
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .accessibilityLabel("辅助功能")
-        .help("辅助功能：窗贴截图与粘贴")
+        .accessibilityLabel(L10n.tr("辅助功能"))
+        .help(L10n.tr("辅助功能：窗贴截图与粘贴"))
     }
 
     private var waiting: some View {
@@ -173,13 +175,13 @@ struct ContentView: View {
                 .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
                 .animation(fadeAnimation, value: appState.connectionMode)
 
-            Text("等待投屏")
+            Text(L10n.tr("等待投屏"))
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(.white)
                 .help(statusLine)
 
             if appState.connectionMode == .wireless, let pin = appState.pinCode {
-                Text("配对码 \(pin)")
+                Text(L10n.tr("配对码 %1$@", String(describing: pin)))
                     .font(.system(.body, design: .rounded).monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white)
                     .transition(detailTransition)
@@ -219,7 +221,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(SoftButtonStyle(hoverScale: 1.015))
                 .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityValue(selected ? "已选择" : "未选择")
+                .accessibilityValue(selected ? L10n.tr("已选择") : L10n.tr("未选择"))
             }
         }
         .frame(maxWidth: 312)
@@ -238,17 +240,17 @@ struct ContentView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(SoftButtonStyle())
-        .accessibilityLabel("投屏教程")
-        .help("投屏教程与连接帮助")
+        .accessibilityLabel(L10n.tr("投屏教程"))
+        .help(L10n.tr("投屏教程与连接帮助"))
         .background(HelpPanelAnchor(isPresented: $showHelp, content: AnyView(
-            helpContents.environmentObject(appState).preferredColorScheme(.dark)
+            helpContents.environmentObject(appState).preferredColorScheme(.dark).appLanguageEnvironment()
         )).allowsHitTesting(false))
     }
 
     private var helpContents: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                Text(appState.connectionMode == .usb ? "USB 有线投屏" : "无线投屏")
+                Text(appState.connectionMode == .usb ? L10n.tr("USB 有线投屏") : L10n.tr("无线投屏"))
                     .font(.headline)
                 Spacer()
                 Button { showHelp = false } label: {
@@ -260,7 +262,7 @@ struct ContentView: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(SoftButtonStyle())
-                .accessibilityLabel("关闭教程")
+                .accessibilityLabel(L10n.tr("关闭教程"))
             }
             Text(statusLine)
                 .font(.caption)
@@ -277,7 +279,7 @@ struct ContentView: View {
     private var statusLine: String {
         if appState.connectionMode == .wireless, discovery.isVisibleOnLan,
            appState.status == .advertising {
-            return "已可被局域网内的 iPhone / iPad 搜索到"
+            return L10n.tr("已可被局域网内的 iPhone / iPad 搜索到")
         }
         return appState.statusText
     }
@@ -305,28 +307,28 @@ struct ContentView: View {
 
     private var wirelessInstructions: some View {
         VStack(alignment: .leading, spacing: 18) {
-            instructionRow(number: "1", title: "打开控制中心") {
-                instructionText("iPhone X 及更新机型、iPadOS：右上角下拉。有 Home 键的 iPhone 或更早的 iPad：底部上滑。")
+            instructionRow(number: "1", title: L10n.tr("打开控制中心")) {
+                instructionText(L10n.tr("iPhone X 及更新机型、iPadOS：右上角下拉。有 Home 键的 iPhone 或更早的 iPad：底部上滑。"))
             }
-            instructionRow(number: "2", title: "按系统版本选择图标") {
+            instructionRow(number: "2", title: L10n.tr("按系统版本选择图标")) {
                 ScreenMirroringButtons()
             }
-            instructionRow(number: "3", title: "选择「\(appState.receiverName)」") {
-                instructionText("设备需要与 Mac 连接到可以互相访问的局域网。显示名可以在设置里改。")
+            instructionRow(number: "3", title: L10n.tr("选择「%1$@」", String(describing: appState.receiverName))) {
+                instructionText(L10n.tr("设备需要与 Mac 连接到可以互相访问的局域网。显示名可以在设置里改。"))
             }
         }
     }
 
     private var wiredInstructions: some View {
         VStack(alignment: .leading, spacing: 18) {
-            instructionRow(number: "1", title: "用数据线连接 iPad 和 Mac") {
-                instructionText("使用支持数据传输的 USB-C 或 Lightning 线，无需连接同一个 Wi-Fi。")
+            instructionRow(number: "1", title: L10n.tr("用数据线连接 iPad 和 Mac")) {
+                instructionText(L10n.tr("使用支持数据传输的 USB-C 或 Lightning 线，无需连接同一个 Wi-Fi。"))
             }
-            instructionRow(number: "2", title: "解锁 iPad，点「信任」") {
-                instructionText("在 iPad 上确认「信任此电脑」，并按提示输入设备密码。")
+            instructionRow(number: "2", title: L10n.tr("解锁 iPad，点「信任」")) {
+                instructionText(L10n.tr("在 iPad 上确认「信任此电脑」，并按提示输入设备密码。"))
             }
-            instructionRow(number: "3", title: "允许访问后，画面自动出现") {
-                instructionText("macOS 将有线画面归为相机输入，请允许镜投访问相机。无需在 iPad 上打开「屏幕镜像」。")
+            instructionRow(number: "3", title: L10n.tr("允许访问后，画面自动出现")) {
+                instructionText(L10n.tr("macOS 将有线画面归为相机输入，请允许镜投访问相机。无需在 iPad 上打开「屏幕镜像」。"))
             }
             Divider().overlay(Color.white.opacity(0.08))
             WiredDeviceControls()
@@ -361,21 +363,22 @@ struct ContentView: View {
 }
 
 private struct ScreenMirroringButtons: View {
+    @ObservedObject private var language = LanguagePreferences.shared
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 16) {
                 iconExample(
                     symbol: "rectangle.on.rectangle",
-                    title: "屏幕镜像",
-                    versions: "iOS 11 及以后\n所有 iPadOS 版本"
+                    title: L10n.tr("屏幕镜像"),
+                    versions: L10n.tr("iOS 11 及以后\n所有 iPadOS 版本")
                 )
                 iconExample(
                     symbol: "airplayvideo",
-                    title: "AirPlay / 镜像",
-                    versions: "iOS 10 及更早\n旧版入口"
+                    title: L10n.tr("AirPlay / 镜像"),
+                    versions: L10n.tr("iOS 10 及更早\n旧版入口")
                 )
             }
-            Text("iOS / iPadOS 18、26、27 都选双矩形。新版中的屏幕＋三角是视频播放入口。")
+            Text(L10n.tr("iOS / iPadOS 18、26、27 都选双矩形。新版中的屏幕＋三角是视频播放入口。"))
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)

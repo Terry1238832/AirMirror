@@ -1,0 +1,13 @@
+Bring your iPhone or iPad screen to your Mac in a simple, independent window.
+
+Connect wirelessly over a reachable local network, or use a USB-C or Lightning data cable when devices cannot communicate over Wi-Fi. USB mirroring requires an unlocked device that trusts your Mac. macOS treats USB video as camera input, so camera access is required. Device audio is optional and requests microphone access separately.
+
+Maximum quality is selected by default. The actual resolution depends on your device and connection. Adjust quality, frame rate, pairing codes, window size and picture proportions in Settings.
+
+WindowPaste is built in as a separate capture window. Capture the mirrored picture or another app window, copy it, then paste manually into the app of your choice. You can assign a keyboard shortcut, and mirroring continues while you use it. Capturing other apps requires Screen Recording permission.
+
+Choose from 14 languages at first launch or in Settings, including an Arabic layout that reads from right to left. System Default is selected initially.
+
+Video and audio are processed locally. No account, advertising or analytics service is included. Privacy and open-source notices are available inside the app.
+
+Requires an Apple silicon Mac with macOS 14 or later, plus an iPhone or iPad. Wireless mode needs a local network where the devices can reach each other. USB mode needs a data cable and device trust. Protected video may not be displayed. Remote touch control and saving screen recordings are not included.

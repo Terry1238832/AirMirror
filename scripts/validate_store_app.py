@@ -79,6 +79,18 @@ def validate(app, distribution=False):
         assert (contents / "Resources" / resource).is_file(), resource
     assert (contents / "Resources/StoreRuntimeNotices.txt").is_file()
     assert (contents / "Resources/ThirdPartyLicenses/libplist-LGPL.txt").is_file()
+    languages = {"zh-Hans", "zh-Hant", "en", "ja", "ko", "fr", "de", "es", "pt-BR", "it", "ru", "ar", "hi", "id"}
+    catalog = json.loads((Path(__file__).resolve().parents[1] / "AirMirror/Localizable.xcstrings").read_text())["strings"]
+    for language in languages:
+        folder = contents / "Resources" / (language + ".lproj")
+        strings = plistlib.loads(output(["plutil", "-convert", "xml1", "-o", "-", folder / "Localizable.strings"]).encode())
+        localized_info = plistlib.loads(output(["plutil", "-convert", "xml1", "-o", "-", folder / "InfoPlist.strings"]).encode())
+        assert strings.get("跟随系统") and strings.get("欢迎使用 %1$@"), language
+        for key, entry in catalog.items():
+            assert strings.get(key) == entry["localizations"][language]["stringUnit"]["value"], (language, key)
+        for name in ["NSLocalNetworkUsageDescription", "NSCameraUsageDescription", "NSMicrophoneUsageDescription", "NSScreenCaptureUsageDescription"]:
+            assert localized_info.get(name), (language, name)
+    assert (contents / "Resources/AppIcon.icns").is_file()
     output(["codesign", "--verify", "--deep", "--strict", app])
     if distribution:
         assert (contents / "embedded.provisionprofile").is_file(), "Missing Store provisioning profile"
