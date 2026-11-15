@@ -1,0 +1,77 @@
+{
+  "policy_fingerprint": "b2a8dd3c958e1d41cc48d0e93a327b5751d701f07b4d64bbeb1e3d79051fdef0",
+  "files": {
+    "ar/privacy.html": {
+      "sha256": "4fe7fc2e78138d97400ef7ccbd824bd86bfa6e44b25097dcec7d85d629e68b4e",
+      "bytes": 5186
+    },
+    "assets/app-icon.png": {
+      "sha256": "8eb491e8f09a165a6de9e0d32f890a565b79d76c7604b2d17fd3afc3a2c9ddfd",
+      "bytes": 769207
+    },
+    "assets/style.css": {
+      "sha256": "e0d33c1e185fa1aeecf882bc13f1eca3f3097f0a0ee57fff4453ab7c9208157a",
+      "bytes": 1017
+    },
+    "de/privacy.html": {
+      "sha256": "7c4812f25b85540105635b8154a6d824c93193a39fb58982c59aab816faedfda",
+      "bytes": 4488
+    },
+    "en/index.html": {
+      "sha256": "45f9100a027c9e498aed8b62f803dce75508ab74b64e6b613ca4bb356d09f47f",
+      "bytes": 2425
+    },
+    "en/privacy.html": {
+      "sha256": "08aa934ba633e18c5d638f3a1ab652951ce71caa6517a1c18a6c17b31d5adf7b",
+      "bytes": 4034
+    },
+    "es/privacy.html": {
+      "sha256": "3cc553a42ab3be824ccfa5b2f1ad8c8afb3c8dff0ed7fc90141d589ca3770ad3",
+      "bytes": 4393
+    },
+    "fr/privacy.html": {
+      "sha256": "91a4b696279640ebbec60e1e82072e6484a2cfaedc841483d5ea25138592d424",
+      "bytes": 4630
+    },
+    "hi/privacy.html": {
+      "sha256": "41d91010849bc4ee576d22b6336cbcf834de1b41a378cb539a76995eee22e71e",
+      "bytes": 7435
+    },
+    "id/privacy.html": {
+      "sha256": "0ebf99e29894cd39a80f4595db31ddc6391452174dae7dc0a5012991c8492775",
+      "bytes": 4266
+    },
+    "index.html": {
+      "sha256": "0ee1bd0e26640d7e07f5ca13c6d13362e49189984ab8861c4275a671a94b74a2",
+      "bytes": 2192
+    },
+    "it/privacy.html": {
+      "sha256": "e1ae9e1d2eee773902ff3da47fc9c3c58d144bd805d87215e016d7584ebc13dd",
+      "bytes": 4421
+    },
+    "ja/privacy.html": {
+      "sha256": "da120187ecc7b01ee0a3349fa641aa87fc8dc9d9dd83d75ad6b77c9d8bbe4dd1",
+      "bytes": 4892
+    },
+    "ko/privacy.html": {
+      "sha256": "9050236d824dfdbad1532278af7a7d52295f3ab38dea90f551565805dbec3e05",
+      "bytes": 4626
+    },
+    "privacy.html": {
+      "sha256": "9b6501cb15031653f60bb9885694a6553baf9cd75241ef9f7a61ec0b82bae894",
+      "bytes": 3556
+    },
+    "pt-BR/privacy.html": {
+      "sha256": "55eba877540a5d7dd58c39f702ddf66d839cd251eb73f2603fde894f6b8356ea",
+      "bytes": 4386
+    },
+    "ru/privacy.html": {
+      "sha256": "5cf8c05d3da6a35f37daaf972495e9597575b23d10798f850cb26477f5b6f3e5",
+      "bytes": 6136
+    },
+    "zh-Hant/privacy.html": {
+      "sha256": "64c89c173edd4f8b5e8114301f82ede528781210be2ab3dbed34bcbaa81b5239",
+      "bytes": 3701
+    }
+  }
+}
